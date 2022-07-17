@@ -24,7 +24,7 @@ def get_im(word, width, height):
 def to_bitmap(word):
     code = 0x00
     data_code = word.encode("utf-8")
-    width = 16
+    width = FONT_SIZE
     # fixme: 如果英文为 8 宽度无法存储
     # if ord(word) < 128:
     #     width = 8
@@ -56,7 +56,7 @@ def to_bitmap(word):
 
 
 # 字节记录占位
-bitmap_fonts.write(bytearray([0x01, 0, 0, 0, 0x10, 0, 0, 0, 0]))  # 第一位存版本，中间三位存开始位置，第五位存字号
+bitmap_fonts.write(bytearray([0x01, 0, 0, 0, FONT_SIZE, 0, 0, 0, 0]))  # 第一位存版本，中间三位存开始位置，第五位存字号
 
 for _ in WORDS:
     bitmap_fonts.write(bytearray(_.encode("utf-8")))
@@ -66,7 +66,7 @@ start_bitmap = bitmap_fonts.tell()
 
 # 点阵开始字节写入
 bitmap_fonts.seek(0x01, 0)
-bitmap_fonts.write(bytearray([start_bitmap >> 16, start_bitmap - (start_bitmap >> 8 << 8)]))
+bitmap_fonts.write(bytearray([start_bitmap >> 16, (start_bitmap & 0xff00) >> 8, start_bitmap & 0xff]))
 bitmap_fonts.seek(start_bitmap, 0)
 
 # 开始写入点阵

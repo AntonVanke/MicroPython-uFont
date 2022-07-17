@@ -1,9 +1,9 @@
 with open("test.bmf", "rb") as bmf:
-    bmf.seek(0, 0)
-    start = bmf.read(2)
-    start = (start[0] << 8) + start[1]
-    bmf.seek(2, 0)
-    words = bmf.read(start - 2).decode("utf-8")
+    bmf.seek(1, 0)
+    start = bmf.read(3)
+    start = (start[0] << 16) + (start[1] << 8) + start[2]
+    bmf.seek(9, 0)
+    words = bmf.read(start - 9).decode("utf-8")
 
 bmf_file = open("test.bmf", "rb")
 
