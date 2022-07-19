@@ -8,10 +8,10 @@ WORDS.sort()
 # print(WORDS)
 # 转换为点阵文件的源字体文件
 FONT_SIZE = 16
-FONT = ImageFont.truetype(font='simsun.ttc', size=FONT_SIZE)
+FONT = ImageFont.truetype(font='MaShanZheng-Regular.ttf', size=FONT_SIZE)
 
 # 生成的 bmf
-bitmap_fonts = open("test.bmf", "wb")
+bitmap_fonts = open("mszT.bmf", "wb")
 
 
 def get_im(word, width, height):
@@ -40,23 +40,29 @@ def to_bitmap(word):
 
     bmf = []
 
-    for b in bp:
-        v = 0
-        for _ in b[0:8]:
+    for line in bp.reshape((-1, 8)):
+        v = 0x00
+        for _ in line:
             v = (v << 1) + _
         bmf.append(v)
-
-    for e in bp:
-        v = 0
-        for _ in e[8:]:
-            v = (v << 1) + _
-        bmf.append(v)
+    # print(bp)
+    # for b in bp:
+    #     v = 0
+    #     for _ in b[0:8]:
+    #         v = (v << 1) + _
+    #     bmf.append(v)
+    # #
+    # for e in bp:
+    #     v = 0
+    #     for _ in e[8:]:
+    #         v = (v << 1) + _
+    #     bmf.append(v)
 
     bitmap_fonts.write(bytearray(bmf))
 
 
 # 字节记录占位
-bitmap_fonts.write(bytearray([0x01, 0, 0, 0, FONT_SIZE, 0, 0, 0, 0]))  # 第一位存版本，中间三位存开始位置，第五位存字号
+bitmap_fonts.write(bytearray([0x01, 0, 0, 0, FONT_SIZE, 0, 0, 0, 0]))  # 第一位存 bmf 版本，中间三位存开始位置，第五位存字号
 
 for _ in WORDS:
     bitmap_fonts.write(bytearray(_.encode("utf-8")))
