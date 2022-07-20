@@ -46,15 +46,36 @@ class SSD1306(framebuf.FrameBuffer):
             self.words = self.bmf.read(self.start - 9).decode("utf-8")
             print("已载入字体：", font_name)
 
+            self.cache = [[], []]
+            self.cache_point = 0x00
+
         self.bmf_file = open(font_name, "rb")
 
     def get_bitmap(self, word):
+        try:
+            self.bmf_file.seek(self.start + 32 * self.cache[1][self.cache[0].index(word)], 0)
+            return list(self.bmf_file.read(32))
+        except ValueError:
+            pass
+
         index = self.words.find(word)
         if index == -1:
             return [0x00, 0x7F, 0x7F, 0x67, 0x6B, 0x75, 0x7A, 0x7D, 0x7D, 0x7A, 0x75, 0x6B, 0x67, 0x7F, 0x7F, 0x00,
                     0x00,
                     0xFE, 0xFE, 0xE6, 0xD6, 0xAE, 0x5E, 0xBE, 0xBE, 0x5E, 0xAE, 0xD6, 0xE6, 0xFE, 0xFE, 0x00]
         self.bmf_file.seek(self.start + 32 * index, 0)
+
+        if len(self.cache[0]) <= 50:
+            self.cache[0].append(word)
+            self.cache[1].append(index)
+        else:
+            self.cache[0][self.cache_point] = word
+            self.cache[1][self.cache_point] = index
+            if self.cache_point < 49:
+                self.cache_point += 1
+            else:
+                self.cache_point = 0
+
         return list(self.bmf_file.read(32))
 
     def chinese(self, string, x, y):
