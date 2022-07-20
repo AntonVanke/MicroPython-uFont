@@ -8,10 +8,10 @@ WORDS.sort()
 # print(WORDS)
 # 转换为点阵文件的源字体文件
 FONT_SIZE = 16
-FONT = ImageFont.truetype(font='MaShanZheng-Regular.ttf', size=FONT_SIZE)
+FONT = ImageFont.truetype(font='simsun.ttc', size=FONT_SIZE)
 
 # 生成的 bmf
-bitmap_fonts = open("mszT.bmf", "wb")
+bitmap_fonts = open("song.bmf", "wb")
 
 
 def get_im(word, width, height):
