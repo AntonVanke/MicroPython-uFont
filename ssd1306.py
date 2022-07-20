@@ -60,8 +60,7 @@ class SSD1306(framebuf.FrameBuffer):
     def chinese(self, string, x, y):
         for char in range(len(string)):
             byte_data = self.get_bitmap(string[char])
-            self.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), y + char * 16,
-                      x + char * 16)
+            self.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), x + char * 16, y)
 
     def init_display(self):
         for cmd in (
