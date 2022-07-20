@@ -3,21 +3,24 @@ import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
 # 需要转换的字符集并排序
-WORDS = list(set(list(open("3500.txt", encoding="utf-8").read())))
+WORDS = list(set(list(open("7000.txt", encoding="utf-8").read())))
 WORDS.sort()
+# open("7000.txt", "w", encoding="utf-8").write("".join(WORDS))
 # print(WORDS)
+# 字体偏移， 不同字体生成可能会有偏移
+OFFSET = (0, -5)
 # 转换为点阵文件的源字体文件
 FONT_SIZE = 16
-FONT = ImageFont.truetype(font='simsun.ttc', size=FONT_SIZE)
+FONT = ImageFont.truetype(font='SourceHanSansSC-Light.otf', size=FONT_SIZE)
 
 # 生成的 bmf
-bitmap_fonts = open("song.bmf", "wb")
+bitmap_fonts = open("SourceHanSansSC-Light.bmf", "wb")
 
 
-def get_im(word, width, height):
+def get_im(word, width, height, offset: tuple = OFFSET):
     im = Image.new('1', (width, height), (1,))
     draw = ImageDraw.Draw(im)
-    draw.text((0, 0), word, font=FONT)
+    draw.text(offset, word, font=FONT)
     return im
 
 

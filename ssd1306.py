@@ -58,6 +58,8 @@ class SSD1306(framebuf.FrameBuffer):
         return list(self.bmf_file.read(32))
 
     def chinese(self, string, x, y):
+        if x > self.width or y > self.height or y < 0:
+            pass
         for char in range(len(string)):
             byte_data = self.get_bitmap(string[char])
             self.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), x, y)
