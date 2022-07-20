@@ -24,3 +24,4 @@ def chinese(string, x, y):
     for char in string:
         byte_data = get_bitmap(char)
 
+

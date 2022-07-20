@@ -3,7 +3,6 @@
 from micropython import const
 import framebuf
 
-
 # register definitions
 SET_CONTRAST = const(0x81)
 SET_ENTIRE_ON = const(0xA4)
@@ -23,6 +22,7 @@ SET_PRECHARGE = const(0xD9)
 SET_VCOM_DESEL = const(0xDB)
 SET_CHARGE_PUMP = const(0x8D)
 
+
 # Subclassing FrameBuffer provides support for graphics primitives
 # http://docs.micropython.org/en/latest/pyboard/library/framebuf.html
 class SSD1306(framebuf.FrameBuffer):
@@ -35,38 +35,66 @@ class SSD1306(framebuf.FrameBuffer):
         super().__init__(self.buffer, self.width, self.height, framebuf.MONO_VLSB)
         self.init_display()
 
+    def font(self, font_name):
+        with open(font_name, "rb") as self.bmf:
+            self.bmf.seek(0, 0)
+            self.version = self.bmf.read(1)
+            self.bmf.seek(1, 0)
+            self.start = self.bmf.read(3)
+            self.start = (self.start[0] << 16) + (self.start[1] << 8) + self.start[2]
+            self.bmf.seek(9, 0)
+            self.words = self.bmf.read(self.start - 9).decode("utf-8")
+            print("已载入字体：", font_name)
+
+        self.bmf_file = open(font_name, "rb")
+
+    def get_bitmap(self, word):
+        index = self.words.find(word)
+        if index == -1:
+            return [0x00, 0x7F, 0x7F, 0x67, 0x6B, 0x75, 0x7A, 0x7D, 0x7D, 0x7A, 0x75, 0x6B, 0x67, 0x7F, 0x7F, 0x00,
+                    0x00,
+                    0xFE, 0xFE, 0xE6, 0xD6, 0xAE, 0x5E, 0xBE, 0xBE, 0x5E, 0xAE, 0xD6, 0xE6, 0xFE, 0xFE, 0x00]
+        self.bmf_file.seek(self.start + 32 * index, 0)
+        return list(self.bmf_file.read(32))
+
+    def chinese(self, string, x, y):
+        for char in range(len(string)):
+            byte_data = self.get_bitmap(string[char])
+            self.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), y + char * 16,
+                      x + char * 16)
+
     def init_display(self):
         for cmd in (
-            SET_DISP | 0x00,  # off
-            # address setting
-            SET_MEM_ADDR,
-            0x00,  # horizontal
-            # resolution and layout
-            SET_DISP_START_LINE | 0x00,
-            SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0
-            SET_MUX_RATIO,
-            self.height - 1,
-            SET_COM_OUT_DIR | 0x08,  # scan from COM[N] to COM0
-            SET_DISP_OFFSET,
-            0x00,
-            SET_COM_PIN_CFG,
-            0x02 if self.width > 2 * self.height else 0x12,
-            # timing and driving scheme
-            SET_DISP_CLK_DIV,
-            0x80,
-            SET_PRECHARGE,
-            0x22 if self.external_vcc else 0xF1,
-            SET_VCOM_DESEL,
-            0x30,  # 0.83*Vcc
-            # display
-            SET_CONTRAST,
-            0xFF,  # maximum
-            SET_ENTIRE_ON,  # output follows RAM contents
-            SET_NORM_INV,  # not inverted
-            # charge pump
-            SET_CHARGE_PUMP,
-            0x10 if self.external_vcc else 0x14,
-            SET_DISP | 0x01,
+                SET_DISP | 0x00,  # off
+                # address setting
+                SET_MEM_ADDR,
+                0x00,  # horizontal
+                # resolution and layout
+                SET_DISP_START_LINE | 0x00,
+                SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0
+                SET_MUX_RATIO,
+                self.height - 1,
+                SET_COM_OUT_DIR | 0x08,  # scan from COM[N] to COM0
+                SET_DISP_OFFSET,
+                0x00,
+                SET_COM_PIN_CFG,
+                0x02 if self.width > 2 * self.height else 0x12,
+                # timing and driving scheme
+                SET_DISP_CLK_DIV,
+                0x80,
+                SET_PRECHARGE,
+                0x22 if self.external_vcc else 0xF1,
+                SET_VCOM_DESEL,
+                0x30,  # 0.83*Vcc
+                # display
+                SET_CONTRAST,
+                0xFF,  # maximum
+                SET_ENTIRE_ON,  # output follows RAM contents
+                SET_NORM_INV,  # not inverted
+                # charge pump
+                SET_CHARGE_PUMP,
+                0x10 if self.external_vcc else 0x14,
+                SET_DISP | 0x01,
         ):  # on
             self.write_cmd(cmd)
         self.fill(0)
@@ -153,5 +181,3 @@ class SSD1306_SPI(SSD1306):
         self.cs(0)
         self.spi.write(buf)
         self.cs(1)
-
-
