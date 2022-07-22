@@ -17,8 +17,8 @@ class Font:
             # 读取版本
             self.version = self.bmf.read(1)
 
-            if str(self.version[0]) != "2":
-                raise TypeError("不支持的字体版本: " + str(self.version[0]))
+            if str(self.version[0]) != "1":
+                raise TypeError("不支持的字体版本: " + font_file + "/v" + str(self.version[0]))
 
             # 起始位
             self.bmf.seek(1, 0)
