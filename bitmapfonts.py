@@ -2,19 +2,22 @@
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
-# 需要转换的字符集并排序
-WORDS = list(set(list(open("7000.txt", encoding="utf-8").read())))
+# 字体偏移， 不同字体生成可能会有偏移
+OFFSET = (0, 0)
+# 转换为点阵文件的源字体文件
+FONT_SIZE = 16
+FONT_FILE = "unifont-14.0.04.ttf"
+CHAR_SET_FILE = "7000.txt"
+# 字符集
+
+WORDS = list(set(list(open(CHAR_SET_FILE, encoding="utf-8").read())))
 WORDS.sort()
 # open("7000.txt", "w", encoding="utf-8").write("".join(WORDS))
 # print(WORDS)
-# 字体偏移， 不同字体生成可能会有偏移
-OFFSET = (0, -5)
-# 转换为点阵文件的源字体文件
-FONT_SIZE = 16
-FONT = ImageFont.truetype(font='SourceHanSansSC-Light.otf', size=FONT_SIZE)
+FONT = ImageFont.truetype(font=FONT_FILE, size=FONT_SIZE)
 
 # 生成的 bmf
-bitmap_fonts = open("SourceHanSansSC-Light.bmf", "wb")
+bitmap_fonts = open(FONT_FILE.split('.')[0] + ".v2.bmf", "wb")
 
 
 def get_im(word, width, height, offset: tuple = OFFSET):
@@ -65,7 +68,14 @@ def to_bitmap(word):
 
 
 # 字节记录占位
-bitmap_fonts.write(bytearray([0x01, 0, 0, 0, FONT_SIZE, 0, 0, 0, 0]))  # 第一位存 bmf 版本，中间三位存开始位置，第五位存字号
+bitmap_fonts.write(bytearray([
+    66, 77,  # 标记
+    2,  # 版本
+    0,  # 映射方式
+    0, 0, 0,  # 位图开始字节
+    FONT_SIZE,  # 字号
+    0, 0, 0, 0, 0, 0, 0, 0  # 兼容项
+]))
 
 for _ in WORDS:
     bitmap_fonts.write(bytearray(_.encode("utf-8")))
@@ -74,7 +84,7 @@ print("索引写入完毕", bitmap_fonts.tell(), hex(bitmap_fonts.tell()))
 start_bitmap = bitmap_fonts.tell()
 
 # 点阵开始字节写入
-bitmap_fonts.seek(0x01, 0)
+bitmap_fonts.seek(0x05, 0)
 bitmap_fonts.write(bytearray([start_bitmap >> 16, (start_bitmap & 0xff00) >> 8, start_bitmap & 0xff]))
 bitmap_fonts.seek(start_bitmap, 0)
 

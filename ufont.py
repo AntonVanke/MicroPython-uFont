@@ -12,22 +12,26 @@ class Font:
             raise TypeError("不支持的字体文件类型: " + font_file)
 
         with open(font_file, "rb") as self.bmf:
-            # 首位
+            # 验证格式
             self.bmf.seek(0, 0)
+            if self.bmf.read(2).decode() != "BM":
+                raise TypeError("不支持的字体文件类型!" + font_file)
+
             # 读取版本
+            self.bmf.seek(2, 0)
             self.version = self.bmf.read(1)
 
-            if str(self.version[0]) != "1":
+            if str(self.version[0]) != "2":
                 raise TypeError("不支持的字体版本: " + font_file + "/v" + str(self.version[0]))
 
             # 起始位
-            self.bmf.seek(1, 0)
+            self.bmf.seek(5, 0)
             self.start = self.bmf.read(3)
             self.start = (self.start[0] << 16) + (self.start[1] << 8) + self.start[2]
 
             # 索引
-            self.bmf.seek(9, 0)
-            self.words = self.bmf.read(self.start - 9).decode("utf-8")
+            self.bmf.seek(16, 0)
+            self.words = self.bmf.read(self.start - 16).decode("utf-8")
 
             # 查找缓存
             self.cache = ["", []]
