@@ -71,6 +71,11 @@ class Font:
             pass
         for char in range(len(string)):
             byte_data = self._get_bitmap(string[char])
+            # print(byte_data)
+            if self.dtype == "eink":
+                for _pixel in range(len(byte_data)):
+                    byte_data[_pixel] = ~byte_data[_pixel] & 0xff
+            # print(byte_data)
             self.display.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), x, y)
             if ord(string[char]) < 128:
                 x += 8

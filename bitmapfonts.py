@@ -4,14 +4,18 @@ from PIL import ImageFont, ImageDraw, Image
 
 # 字体偏移， 不同字体生成可能会有偏移
 OFFSET = (0, 0)
-# 转换为点阵文件的源字体文件
-FONT_SIZE = 16
+# 生成字体数量，3000个约占 120k 空间, 10k 内存
+FONT_NUM = 10000
+FONT_SIZE = 16  # 其他字号可能有些问题
 FONT_FILE = "unifont-14.0.04.ttf"
-CHAR_SET_FILE = "7000.txt"
-# 字符集
+CHAR_SET_FILE = "text.txt"
 
-WORDS = list(set(list(open(CHAR_SET_FILE, encoding="utf-8").read())))
-WORDS.sort()
+WORDS = list(open(CHAR_SET_FILE, encoding="utf-8").read())
+if len(list(set(WORDS))) != len(WORDS):
+    print("字符集有重复字")
+if len(WORDS) < FONT_NUM:
+    FONT_NUM = len(list(open(CHAR_SET_FILE, encoding="utf-8")))
+# WORDS.sort()
 # open("7000.txt", "w", encoding="utf-8").write("".join(WORDS))
 # print(WORDS)
 FONT = ImageFont.truetype(font=FONT_FILE, size=FONT_SIZE)
@@ -79,8 +83,8 @@ bitmap_fonts.write(bytearray([
 
 for _ in WORDS:
     bitmap_fonts.write(bytearray(_.encode("utf-8")))
-
-print("索引写入完毕", bitmap_fonts.tell(), hex(bitmap_fonts.tell()))
+print(f"正在生成文件", FONT_FILE.split('.')[0] + ".v2.bmf :")
+print("\t索引写入完毕，起始字节位：", hex(bitmap_fonts.tell()), "预计载入字体RAM占用:", f'{bitmap_fonts.tell() / 1024:.2f}kB')
 start_bitmap = bitmap_fonts.tell()
 
 # 点阵开始字节写入
@@ -89,8 +93,9 @@ bitmap_fonts.write(bytearray([start_bitmap >> 16, (start_bitmap & 0xff00) >> 8, 
 bitmap_fonts.seek(start_bitmap, 0)
 
 # 开始写入点阵
-for _ in WORDS:
-    to_bitmap(_)
+for _ in range(FONT_NUM):
+    to_bitmap(WORDS[_])
 
-print("点阵写入完毕", bitmap_fonts.tell(), hex(bitmap_fonts.tell()))
+print("\t点阵写入完毕，总大小：", f'{bitmap_fonts.tell() / 1024:.2f}kB', "总字数：", FONT_NUM, "字")
+print(f"生成完毕")
 bitmap_fonts.close()
