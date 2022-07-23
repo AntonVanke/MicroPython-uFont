@@ -15,9 +15,6 @@ class Font:
         self.dtype = str(dtype)
         self.reverse = reverse
 
-        if font_file[-3:] != "bmf":
-            raise TypeError("不支持的字体文件类型: " + font_file)
-
         with open(font_file, "rb") as self.bmf:
             # 验证格式
             self.bmf.seek(0, 0)
