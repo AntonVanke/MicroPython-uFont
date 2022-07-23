@@ -4,9 +4,16 @@ import framebuf
 
 
 class Font:
-    def __init__(self, display, font_file, dtype="ssd1306"):
+    def __init__(self, display, font_file, reverse=False, dtype="ssd1306"):
+        """
+        :param display: 显示对象
+        :param font_file: bmf 字体文件
+        :param reverse: 是否反转颜色
+        :param dtype: 显示器类型
+        """
         self.display = display
         self.dtype = str(dtype)
+        self.reverse = reverse
 
         if font_file[-3:] != "bmf":
             raise TypeError("不支持的字体文件类型: " + font_file)
@@ -72,7 +79,7 @@ class Font:
         for char in range(len(string)):
             byte_data = self._get_bitmap(string[char])
             # print(byte_data)
-            if self.dtype == "eink":
+            if self.reverse:
                 for _pixel in range(len(byte_data)):
                     byte_data[_pixel] = ~byte_data[_pixel] & 0xff
             # print(byte_data)
