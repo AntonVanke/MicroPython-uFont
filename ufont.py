@@ -29,7 +29,7 @@ class Font:
                 raise TypeError("不支持的字体版本: " + font_file + "/v" + str(self.version[0]))
 
             # 起始位
-            self.bmf.seek(5, 0)
+            self.bmf.seek(4, 0)
             self.start = self.bmf.read(3)
             self.start = (self.start[0] << 16) + (self.start[1] << 8) + self.start[2]
 

@@ -5,7 +5,7 @@ from PIL import ImageFont, ImageDraw, Image
 # 字体偏移， 不同字体生成可能会有偏移
 OFFSET = (0, 0)
 # 生成字体数量，3000个约占 120k 空间, 10k 内存
-FONT_NUM = 10000
+FONT_NUM = 7000
 FONT_SIZE = 16  # 其他字号可能有些问题
 FONT_FILE = "unifont-14.0.04.ttf"
 CHAR_SET_FILE = "text.txt"
@@ -14,14 +14,14 @@ WORDS = list(open(CHAR_SET_FILE, encoding="utf-8").read())
 if len(list(set(WORDS))) != len(WORDS):
     print("字符集有重复字")
 if len(WORDS) < FONT_NUM:
-    FONT_NUM = len(list(open(CHAR_SET_FILE, encoding="utf-8")))
+    FONT_NUM = len(WORDS)
 # WORDS.sort()
 # open("7000.txt", "w", encoding="utf-8").write("".join(WORDS))
 # print(WORDS)
 FONT = ImageFont.truetype(font=FONT_FILE, size=FONT_SIZE)
 
 # 生成的 bmf
-bitmap_fonts = open(FONT_FILE.split('.')[0] + ".v2.bmf", "wb")
+bitmap_fonts = open(FONT_FILE.split('.')[0] + "-" + str(FONT_NUM) + ".v2.bmf", "wb")
 
 
 def get_im(word, width, height, offset: tuple = OFFSET):
@@ -81,17 +81,16 @@ bitmap_fonts.write(bytearray([
     0, 0, 0, 0, 0, 0, 0, 0  # 兼容项
 ]))
 
-for _ in WORDS:
-    bitmap_fonts.write(bytearray(_.encode("utf-8")))
-print(f"正在生成文件", FONT_FILE.split('.')[0] + ".v2.bmf :")
+for _ in range(FONT_NUM):
+    bitmap_fonts.write(bytearray(WORDS[_].encode("utf-8")))
+print(f"正在生成文件", FONT_FILE.split('.')[0] + "-" + str(FONT_NUM) + ".v2.bmf :")
 print("\t索引写入完毕，起始字节位：", hex(bitmap_fonts.tell()), "预计载入字体RAM占用:", f'{bitmap_fonts.tell() / 1024:.2f}kB')
 start_bitmap = bitmap_fonts.tell()
 
 # 点阵开始字节写入
-bitmap_fonts.seek(0x05, 0)
+bitmap_fonts.seek(0x04, 0)
 bitmap_fonts.write(bytearray([start_bitmap >> 16, (start_bitmap & 0xff00) >> 8, start_bitmap & 0xff]))
 bitmap_fonts.seek(start_bitmap, 0)
-
 # 开始写入点阵
 for _ in range(FONT_NUM):
     to_bitmap(WORDS[_])
