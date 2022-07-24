@@ -1,5 +1,5 @@
 # MicroPython SSD1306 OLED driver, I2C and SPI interfaces
-
+# https://github.com/micropython/micropython/blob/master/drivers/display/ssd1306.py
 from micropython import const
 import framebuf
 
@@ -14,6 +14,7 @@ SET_PAGE_ADDR = const(0x22)
 SET_DISP_START_LINE = const(0x40)
 SET_SEG_REMAP = const(0xA0)
 SET_MUX_RATIO = const(0xA8)
+SET_IREF_SELECT = const(0xAD)
 SET_COM_OUT_DIR = const(0xC0)
 SET_DISP_OFFSET = const(0xD3)
 SET_COM_PIN_CFG = const(0xDA)
@@ -35,67 +36,14 @@ class SSD1306(framebuf.FrameBuffer):
         super().__init__(self.buffer, self.width, self.height, framebuf.MONO_VLSB)
         self.init_display()
 
-    def font(self, font_name):
-        with open(font_name, "rb") as self.bmf:
-            self.bmf.seek(0, 0)
-            self.version = self.bmf.read(1)
-            self.bmf.seek(1, 0)
-            self.start = self.bmf.read(3)
-            self.start = (self.start[0] << 16) + (self.start[1] << 8) + self.start[2]
-            self.bmf.seek(9, 0)
-            self.words = self.bmf.read(self.start - 9).decode("utf-8")
-            print("已载入字体：", font_name)
-
-            self.cache = ["", []]
-            self.cache_point = 0x00
-
-        self.bmf_file = open(font_name, "rb")
-
-    def get_bitmap(self, word):
-        cindex = self.cache[0].find(word)
-
-        if cindex != -1:
-            self.bmf_file.seek(self.start + 32 * self.cache[1][cindex], 0)
-            return list(self.bmf_file.read(32))
-
-        index = self.words.find(word)
-        if index == -1:
-            return [0xff, 0xff, 0xff, 0xff, 0xf8, 0x0f, 0xe7, 0xe7, 0xcf, 0xf3, 0xc7, 0xf3, 0xff, 0xc7, 0xff, 0x1f,
-                    0xff, 0x3f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff]
-        self.bmf_file.seek(self.start + 32 * index, 0)
-
-        if len(self.cache[0]) <= 100:
-            self.cache[0] += word
-            self.cache[1].append(index)
-        else:
-            self.cache[0][self.cache_point] = word
-            self.cache[1][self.cache_point] = index
-            if self.cache_point < 99:
-                self.cache_point += 1
-            else:
-                self.cache_point = 0
-
-        return list(self.bmf_file.read(32))
-
-    def chinese(self, string, x, y):
-        if x > self.width or y > self.height or y < 0:
-            pass
-        for char in range(len(string)):
-            byte_data = self.get_bitmap(string[char])
-            self.blit(framebuf.FrameBuffer(bytearray(byte_data), 16, 16, framebuf.MONO_HLSB), x, y)
-            if ord(string[char]) < 128:
-                x += 8
-            else:
-                x += 16
-
     def init_display(self):
         for cmd in (
-                SET_DISP | 0x00,  # off
+                SET_DISP,  # display off
                 # address setting
                 SET_MEM_ADDR,
                 0x00,  # horizontal
                 # resolution and layout
-                SET_DISP_START_LINE | 0x00,
+                SET_DISP_START_LINE,  # start at line 0
                 SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0
                 SET_MUX_RATIO,
                 self.height - 1,
@@ -116,17 +64,19 @@ class SSD1306(framebuf.FrameBuffer):
                 0xFF,  # maximum
                 SET_ENTIRE_ON,  # output follows RAM contents
                 SET_NORM_INV,  # not inverted
+                SET_IREF_SELECT,
+                0x30,  # enable internal IREF during display on
                 # charge pump
                 SET_CHARGE_PUMP,
                 0x10 if self.external_vcc else 0x14,
-                SET_DISP | 0x01,
+                SET_DISP | 0x01,  # display on
         ):  # on
             self.write_cmd(cmd)
         self.fill(0)
         self.show()
 
     def poweroff(self):
-        self.write_cmd(SET_DISP | 0x00)
+        self.write_cmd(SET_DISP)
 
     def poweron(self):
         self.write_cmd(SET_DISP | 0x01)
@@ -138,13 +88,18 @@ class SSD1306(framebuf.FrameBuffer):
     def invert(self, invert):
         self.write_cmd(SET_NORM_INV | (invert & 1))
 
+    def rotate(self, rotate):
+        self.write_cmd(SET_COM_OUT_DIR | ((rotate & 1) << 3))
+        self.write_cmd(SET_SEG_REMAP | (rotate & 1))
+
     def show(self):
         x0 = 0
         x1 = self.width - 1
-        if self.width == 64:
-            # displays with width of 64 pixels are shifted by 32
-            x0 += 32
-            x1 += 32
+        if self.width != 128:
+            # narrow displays use centred columns
+            col_offset = (128 - self.width) // 2
+            x0 += col_offset
+            x1 += col_offset
         self.write_cmd(SET_COL_ADDR)
         self.write_cmd(x0)
         self.write_cmd(x1)
@@ -206,4 +161,3 @@ class SSD1306_SPI(SSD1306):
         self.cs(0)
         self.spi.write(buf)
         self.cs(1)
-
