@@ -1,28 +1,105 @@
-with open("test.bmf", "rb") as bmf:
-    bmf.seek(0, 0)
-    version = bmf.read(1)
-    bmf.seek(1, 0)
-    start = bmf.read(3)
-    start = (start[0] << 16) + (start[1] << 8) + start[2]
-    bmf.seek(9, 0)
-    words = bmf.read(start - 9).decode("utf-8")
-    print("已载入字体，BMF 版本号：", version[0])
+import struct
 
-bmf_file = open("mszT.bmf", "rb")
+import numpy as np
+from PIL import Image
 
 
-def get_bitmap(word):
-    index = words.find(word)
-    if index == -1:
-        return [0x00, 0x7F, 0x7F, 0x67, 0x6B, 0x75, 0x7A, 0x7D, 0x7D, 0x7A, 0x75, 0x6B, 0x67, 0x7F, 0x7F, 0x00, 0x00,
-                0xFE, 0xFE, 0xE6, 0xD6, 0xAE, 0x5E, 0xBE, 0xBE, 0x5E, 0xAE, 0xD6, 0xE6, 0xFE, 0xFE, 0x00]
-    bmf_file.seek(start + 32 * index, 0)
-    return list(bmf_file.read(32))
+class Font:
+    def __init__(self, display, font_file, reverse=False, dtype="ssd1306"):
+        """
+        :param display: 显示对象
+        :param font_file: bmf 字体文件
+        :param reverse: 是否反转颜色
+        :param dtype: 显示器类型
+        """
+        self.display = display
+        self.dtype = str(dtype)
+        self.reverse = reverse
+
+        with open(font_file, "rb") as self.bmf:
+            # 验证格式
+            self.bmf.seek(0, 0)
+            if self.bmf.read(2).decode() != "BM":
+                raise TypeError("不支持的字体文件类型!" + font_file)
+
+            # 读取版本
+            self.bmf.seek(2, 0)
+            self.version = self.bmf.read(1)
+
+            if str(self.version[0]) != "2":
+                raise TypeError("不支持的字体版本: " + font_file + "/v" + str(self.version[0]))
+
+            # 起始位
+            self.bmf.seek(4, 0)
+            self.start = self.bmf.read(3)
+            self.start = (self.start[0] << 16) + (self.start[1] << 8) + self.start[2]
+
+            # 索引
+            self.bmf.seek(16, 0)
+            self.words = self.bmf.read(self.start - 16).decode("utf-8")
+
+            # 查找缓存
+            self.cache = ["", []]
+            self.cache_point = 0x00
+
+        # 载入字体文件
+        self.bmf_file = open(font_file, "rb")
+
+    def get_bitmap(self, word):
+        cindex = self.cache[0].find(word)
+
+        if cindex != -1:
+            self.bmf_file.seek(self.start + 32 * self.cache[1][cindex], 0)
+            return list(self.bmf_file.read(32))
+
+        index = self.words.find(word)
+        if index == -1:
+            return [0xff, 0xff, 0xff, 0xff, 0xf8, 0x0f, 0xe7, 0xe7, 0xcf, 0xf3, 0xc7, 0xf3, 0xff, 0xc7, 0xff, 0x1f,
+                    0xff, 0x3f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff]
+        self.bmf_file.seek(self.start + 32 * index, 0)
+
+        if len(self.cache[0]) <= 100:
+            self.cache[0] += word
+            self.cache[1].append(index)
+        else:
+            self.cache[0][self.cache_point] = word
+            self.cache[1][self.cache_point] = index
+            if self.cache_point < 99:
+                self.cache_point += 1
+            else:
+                self.cache_point = 0
+
+        return list(self.bmf_file.read(32))
 
 
-print(words)
-a = get_bitmap("你")
-print(a)
+font = Font(None, "unifont-14-7000.v2.bmf")
+
+
+def list_to_bin(arr):
+    for _ in range(len(arr)):
+        b = []
+        for i in range(7, -1, -1):
+            b.append(arr[_] >> i & 1)
+        arr[_] = b
+    return np.asarray(arr).reshape((-1, 16))
+
+
+def show_bitmap(arr):
+    """
+    显示点阵字 MONO_HLSB
+    :return:
+    """
+    for row in arr:
+        for i in row:
+            if i:
+                print('*', end=' ')
+            else:
+                print('.', end=' ')
+        print()
+
+
+print(list_to_bin(font.get_bitmap("我")))
+show_bitmap(list_to_bin(font.get_bitmap("我")))
 # buf = framebuf.FrameBuffer(
 #     [0x00, 0x01, 0x06, 0x1F, 0xE0, 0x02, 0x04, 0x18, 0xF0, 0x10, 0x13, 0x10, 0x10, 0x14, 0x18, 0x00, 0x80, 0x00, 0x00,
 #      0xFF, 0x00, 0x08, 0x30, 0xC0, 0x02, 0x01, 0xFE, 0x00, 0x80, 0x60, 0x18, 0x00], 16, 16, framebuf.MONO_HLSB)
