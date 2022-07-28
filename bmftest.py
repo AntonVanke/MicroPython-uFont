@@ -80,5 +80,4 @@ class BMFont:
 if __name__ == '__main__':
     a = BMFont("unifont-14-12886-16.v3.bmf")
     print(timeit.timeit(lambda: a.get_bitmap("我"), number=1000))
-
     show_bitmap(list_to_bin(a.get_bitmap("我")))
