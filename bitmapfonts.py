@@ -61,15 +61,8 @@ def get_four_bytes_code(word) -> bytes:
     :param word:
     :return:
     """
-    code = 0x00
-    data_code = word.encode("utf-8")
 
-    if len(data_code) > 3:
-        Exception(f"暂不支持的字节长度{len(data_code)}:{word}")
-
-    for byte in range(len(data_code)):
-        code |= data_code[byte] << (len(data_code) - byte - 1) * 8
-    return struct.pack(">i", code)[1:4]
+    return struct.pack(">H", ord(word))
 
 
 if __name__ == '__main__':
@@ -96,6 +89,7 @@ if __name__ == '__main__':
     for w in WORDS:
         bitmap_fonts.write(get_four_bytes_code(w))
 
+    # 位图开始字节
     start_bitmap = bitmap_fonts.tell()
 
     for w in WORDS:
