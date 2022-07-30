@@ -1,3 +1,5 @@
+__version__ = 3
+
 # 生成点阵字体文件
 import struct
 import numpy as np
@@ -55,13 +57,12 @@ def to_bitmap(word: str) -> bytearray:
     return bytearray(bmf)
 
 
-def get_four_bytes_code(word) -> bytes:
+def get_unicode(word) -> bytes:
     """
-    返回四字节
+    返回 Unicode 编码
     :param word:
     :return:
     """
-
     return struct.pack(">H", ord(word))
 
 
@@ -87,7 +88,7 @@ if __name__ == '__main__':
     ]))
 
     for w in WORDS:
-        bitmap_fonts.write(get_four_bytes_code(w))
+        bitmap_fonts.write(get_unicode(w))
 
     # 位图开始字节
     start_bitmap = bitmap_fonts.tell()
