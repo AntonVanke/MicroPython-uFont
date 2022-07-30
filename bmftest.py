@@ -193,16 +193,13 @@ class BMFont:
             if reverse:
                 for _pixel in range(len(byte_data)):
                     byte_data[_pixel] = ~byte_data[_pixel] & 0xff
+            show_bitmap(byte_to_bit(byte_data, font_size=font_size))
+            # display.blit(
+            #     framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
 
-            display.blit(
-                framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
-            if ord(string[char]) < 128:
-                x += font_size // 2
-            else:
-                x += font_size
 
 
 if __name__ == '__main__':
     a = BMFont("unifont-14-12886-16.v3.bmf")
-    print(timeit.timeit(lambda: a.get_bitmap("我"), number=1000))
-    show_bitmap(list_to_bin(a.get_bitmap("我")))
+    print(timeit.timeit(lambda: a.get_bitmap("O"), number=1000))
+    a.text(None, "OK", 0, 0, font_size=48, reverse=True)

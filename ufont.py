@@ -91,6 +91,16 @@ class BMFont:
 
         return i
 
+    @staticmethod
+    def clear(display, fill):
+        """
+        清空缓冲区
+        :param fill: 填充像素
+        :param display: 继承 FrameBuf 的显示驱动对象
+        :return:
+        """
+        display.fill(fill)
+
     def __init__(self, font_file):
         self.font_file = font_file
 
@@ -145,7 +155,7 @@ class BMFont:
         self.font.seek(self.start_bitmap + index * self.bitmap_size, 0)
         return list(self.font.read(self.bitmap_size))
 
-    def text(self, display, string, x, y, font_size=None, reverse=False, *args, **kwargs):
+    def text(self, display, string, x=0, y=0, font_size=None, reverse=False, clear=False, show=False, *args, **kwargs):
         """
         显示文字
         :param display: 继承 FrameBuffer 的显示驱动类
@@ -154,35 +164,46 @@ class BMFont:
         :param y: y 轴偏移
         :param font_size: 字号
         :param reverse: 位反转
+        :param show: 是否立即显示
+        :param clear: 显示前清屏
         :return:
         """
         if font_size is None:
             font_size = self.font_size
 
+        if clear:
+            self.clear(display, reverse)
         initial_x = x
-        if x > display.width or y > display.height or y < 0:
-            pass
 
         for char in range(len(string)):
+            # 回车
             if string[char] == '\n':
                 y += font_size
                 x = initial_x
                 continue
+            # Tab
             elif string[char] == '\t':
-                x = ((x // font_size) + 1) * font_size + initial_x
+                x = ((x // font_size) + 1) * font_size + initial_x % font_size
                 continue
+            # 其它的控制字符
             elif ord(string[char]) < 16:
                 continue
+
+            # 超过范围
+            if x > display.width or y > display.height:
+                continue
+
             byte_data = self.get_bitmap(string[char])
             if font_size != self.font_size:
                 byte_data = bit_to_byte(zoom(byte_to_bit(byte_data, self.font_size), font_size))
             if reverse:
                 for _pixel in range(len(byte_data)):
                     byte_data[_pixel] = ~byte_data[_pixel] & 0xff
-
             display.blit(
                 framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
             if ord(string[char]) < 128:
                 x += font_size // 2
             else:
                 x += font_size
+        if show:
+            display.show()
