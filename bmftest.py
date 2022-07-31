@@ -38,9 +38,9 @@ def show_bitmap(arr):
     for row in arr:
         for i in row:
             if i:
-                print('*', end=' ')
+                print('* ', end=' ')
             else:
-                print('.', end=' ')
+                print('. ', end=' ')
         print()
 
 
@@ -171,8 +171,8 @@ class BMFont:
             font_size = self.font_size
 
         initial_x = x
-        if x > display.width or y > display.height or y < 0:
-            pass
+        # if x > display.width or y > display.height or y < 0:
+        #     return
 
         for char in range(len(string)):
             # 回车
@@ -198,8 +198,7 @@ class BMFont:
             #     framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
 
 
-
 if __name__ == '__main__':
-    a = BMFont("unifont-14-12886-16.v3.bmf")
-    print(timeit.timeit(lambda: a.get_bitmap("O"), number=1000))
-    a.text(None, "OK", 0, 0, font_size=48, reverse=True)
+    a = BMFont("unifont-14-12888-16.v3.bmf")
+    print("1000次读取时间:", timeit.timeit(lambda: a.get_bitmap("O"), number=1000))
+    a.text(None, "你", 0, 0, font_size=16)

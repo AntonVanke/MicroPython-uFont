@@ -187,7 +187,7 @@ class BMFont:
                 color_array += struct.pack(">H", _rol)
         return color_array
 
-    def text(self, display, string, x=0, y=0, color=1, font_size=None, reverse=False, clear=False, show=False, *args,
+    def text(self, display, string, x=0, y=0, color=1, font_size=16, reverse=False, clear=False, show=False, *args,
              **kwargs):
         """
         显示文字

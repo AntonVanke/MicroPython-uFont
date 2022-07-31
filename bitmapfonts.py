@@ -74,8 +74,9 @@ if __name__ == '__main__':
     FONT = ImageFont.truetype(font=FONT_FILE, size=FONT_SIZE)
 
     # 生成的点阵字体文件
-    bitmap_fonts = open(FONT_FILE.split('.')[0] + "-" + str(FONT_NUM) + "-" + str(FONT_SIZE) + ".v3.bmf", "wb")
-
+    bitmap_fonts_name = FONT_FILE.split('.')[0] + "-" + str(FONT_NUM) + "-" + str(FONT_SIZE) + ".v3.bmf"
+    bitmap_fonts = open(bitmap_fonts_name, "wb")
+    print(f"正在生成点阵字体文件，字体数量{FONT_NUM}：")
     # 字节记录占位
     bitmap_fonts.write(bytearray([
         66, 77,  # 标记
@@ -92,9 +93,10 @@ if __name__ == '__main__':
 
     # 位图开始字节
     start_bitmap = bitmap_fonts.tell()
-
+    print("\t位图起始字节：", hex(start_bitmap))
     for w in WORDS:
         bitmap_fonts.write(to_bitmap(w))
-
+    print("\t文件大小：", bitmap_fonts.tell() // 1024, "Kbyte")
     bitmap_fonts.seek(4, 0)
     bitmap_fonts.write(struct.pack(">i", start_bitmap)[1:4])
+    print(f"生成成功，文件名称：{bitmap_fonts_name}")
