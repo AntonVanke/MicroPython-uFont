@@ -1,3 +1,4 @@
+# 来源：QQ群786510434、https://github.com/mcauser/micropython-waveshare-epaper/blob/master/epaper1in54.py
 from micropython import const
 from time import sleep_ms
 import ustruct
