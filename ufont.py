@@ -1,7 +1,29 @@
 __version__ = 3
 
 import math
+import struct
+
 import framebuf
+
+
+def rgb(r, g, b):
+    """
+    RGB255 to RGB565
+    :param r:
+    :param g:
+    :param b:
+    :return:
+    """
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+
+def hrgb(h):
+    """
+    hex(RGB225) to RGB565
+    :param h:
+    :return:
+    """
+    return (((h >> 16 & 0xff) & 0xF8) << 8) | (((h >> 8 & 0xff) & 0xFC) << 3) | ((h & 0xff) >> 3)
 
 
 def reshape(bitarray):
@@ -155,9 +177,21 @@ class BMFont:
         self.font.seek(self.start_bitmap + index * self.bitmap_size, 0)
         return list(self.font.read(self.bitmap_size))
 
-    def text(self, display, string, x=0, y=0, font_size=None, reverse=False, clear=False, show=False, *args, **kwargs):
+    @staticmethod
+    def _with_color(bitarray, _color):
+        color_array = b''
+        for _col in bitarray:
+            for _rol in _col:
+                if _rol == 1:
+                    _rol = _color
+                color_array += struct.pack(">H", _rol)
+        return color_array
+
+    def text(self, display, string, x=0, y=0, color=1, font_size=None, reverse=False, clear=False, show=False, *args,
+             **kwargs):
         """
         显示文字
+        :param color:
         :param display: 继承 FrameBuffer 的显示驱动类
         :param string: 字符串
         :param x: x 轴偏移
@@ -199,8 +233,15 @@ class BMFont:
             if reverse:
                 for _pixel in range(len(byte_data)):
                     byte_data[_pixel] = ~byte_data[_pixel] & 0xff
-            display.blit(
-                framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
+
+            # 黑白屏
+            if color in [1, 0]:
+                display.blit(
+                    framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
+            else:
+                byte_data = self._with_color(byte_to_bit(byte_data, font_size), color)
+                display.blit(
+                    framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.RGB565), x, y)
             if ord(string[char]) < 128:
                 x += font_size // 2
             else:

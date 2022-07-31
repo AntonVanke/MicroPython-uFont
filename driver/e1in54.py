@@ -38,7 +38,7 @@ class EPD(framebuf.FrameBuffer):
     LUT_PARTIAL_UPDATE = bytearray(
         b'\x10\x18\x18\x08\x18\x18\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x13\x14\x44\x12\x00\x00\x00\x00\x00\x00')
 
-    def __init__(self, spi, cs, dc, rst, busy, isPART=False):
+    def __init__(self, spi, cs, dc, rst, busy):
         self.spi = spi
         self.cs = Pin(cs, Pin.OUT, value=1)
         self.dc = Pin(dc, Pin.OUT, value=0)
@@ -50,10 +50,10 @@ class EPD(framebuf.FrameBuffer):
         self.buffer = bytearray(self.width * self.pages)
         super().__init__(self.buffer, self.width, self.height,
                          framebuf.MONO_HLSB)
-        self.init(isPART)
+        self.init()
 
     def clear(self):
-        self.buffer = bytearray(self.width * self.pages)
+        self.buffer = (b'\xff' * self.width * self.pages)
 
     def show(self):
         self.set_frame_memory(self.buffer, 0, 0, 200, 200)
@@ -74,7 +74,7 @@ class EPD(framebuf.FrameBuffer):
         self.spi.write(data)
         self.cs.value(1)
 
-    def init(self, isPART=True):
+    def init(self):
         self.reset()
         self._command(DRIVER_OUTPUT_CONTROL)
         self._data(bytearray([(EPD_HEIGHT - 1) & 0xFF]))
@@ -86,10 +86,7 @@ class EPD(framebuf.FrameBuffer):
         self._command(SET_GATE_TIME, b'\x08')  # 2us per line
         self._command(DATA_ENTRY_MODE_SETTING, b'\x03')  # X increment Y increment
         # self._command(DATA_ENTRY_MODE_SETTING, b'\x07') # X increment Y increment
-        if isPART:
-            self.set_lut(self.LUT_PARTIAL_UPDATE)
-        else:
-            self.set_lut(self.LUT_FULL_UPDATE)
+        self.set_lut(self.LUT_FULL_UPDATE)
 
     def wait_until_idle(self):
         while self.busy.value() == 1:
@@ -160,4 +157,7 @@ class EPD(framebuf.FrameBuffer):
     # to wake call reset() or init()
     def sleep(self):
         self._command(DEEP_SLEEP_MODE, b'\x01')  # enter deep sleep A0=1, A0=0 power on
-        self.wait_until_idle() 
+        self.wait_until_idle()
+
+    def set_refresh(self, full_update=True):
+        self.set_lut(self.LUT_FULL_UPDATE) if full_update else self.set_lut(self.LUT_PARTIAL_UPDATE)
