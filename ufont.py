@@ -187,11 +187,12 @@ class BMFont:
                 color_array += struct.pack(">H", _rol)
         return color_array
 
-    def text(self, display, string, x=0, y=0, color=1, font_size=16, reverse=False, clear=False, show=False, *args,
-             **kwargs):
+    def text(self, display, string, x=0, y=0, color=1, font_size=16, reverse=False, clear=False, show=False,
+             half_char=True, *args, **kwargs):
         """
         显示文字
-        :param color:
+        :param half_char: 英文是否半格显示
+        :param color: 文字颜色
         :param display: 继承 FrameBuffer 的显示驱动类
         :param string: 字符串
         :param x: x 轴偏移
@@ -242,7 +243,7 @@ class BMFont:
                 byte_data = self._with_color(byte_to_bit(byte_data, font_size), color)
                 display.blit(
                     framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.RGB565), x, y)
-            if ord(string[char]) < 128:
+            if ord(string[char]) < 128 and half_char:
                 x += font_size // 2
             else:
                 x += font_size
