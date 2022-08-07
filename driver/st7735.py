@@ -1,271 +1,236 @@
-# https://github.com/enesbcs/mpyeasy-async/blob/b21a330a467030896ee939113d52be47692f5d33/src/inc/st7735.py
-import framebuf
-import time
-from machine import Pin
+"""
+合宙 Air10x 系列屏幕扩展板驱动
+160(H)RGB x 80(V)
+https://wiki.luatos.com/peripherals/lcd_air10x/index.html
 
-TFTBGR = 0x08  # When set color is bgr else rgb.
-TFTRGB = 0x00
-# TFTRotations = [0x08, 0x68, 0xC8, 0xA8]
-TFTRotations = [0x00, 0x60, 0xC0, 0xA0]
+使用方法:
+    from machine import SPI, Pin
+    from st7735 import ST7735
+
+    spi = SPI(1, 30000000, sck=Pin(2), mosi=Pin(3))
+    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=1)  # 横屏显示
+    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=0)  # 竖屏显示
+
+本款LCD使用的内置控制器为ST7735S，是一款162 x RGB x 132像素的LCD控制器,而本LCD本身的像素为160(H)RGB x 80(V)。由于LCD的显示
+起始位置与控制器的原点不一致，因此在使用控制器初始化显示全屏显示区域时需要对做偏移处理：水平方向从第二个像素点开始显示，垂直方向从第27个像素点
+开始。这样就可以保证显示的LCD中RAM对应的位置与实际一致。(https://www.waveshare.net/wiki/Pico-LCD-0.96)
+
+ST7735S文档: https://www.waveshare.net/w/upload/e/e2/ST7735S_V1.1_20111121.pdf
+FrameBuf文档: https://docs.micropython.org/en/latest/library/framebuf.html
+"""
+import gc
+import time
+import math
+
+import machine
+import framebuf
+
+SWRESET = 0x01
+SLPOUT = 0x11
+NORON = 0x13
+
+INVOFF = 0x20
+DISPON = 0x29
+CASET = 0x2A
+RASET = 0x2B
+RAMWR = 0x2C
+
+MADCTL = 0x36
+COLMOD = 0x3A
+
+FRMCTR1 = 0xB1
+FRMCTR2 = 0xB2
+FRMCTR3 = 0xB3
+
+INVCTR = 0xB4
+
+PWCTR1 = 0xC0
+PWCTR2 = 0xC1
+PWCTR3 = 0xC2
+PWCTR4 = 0xC3
+PWCTR5 = 0xC4
+VMCTR1 = 0xC5
+
+GMCTRP1 = 0xE0
+GMCTRN1 = 0xE1
+
+ROTATIONS = [0x00, 0x60]  # 只给了两个旋转方向
 
 
 class ST7735(framebuf.FrameBuffer):
-    def __init__(self, spi, cs, dc, rst=None, width=80, height=160, disptype='r', xoffset=0, yoffset=0, rotate=0,
-                 rgb=True):
-        self.cs = Pin(cs, Pin.OUT, value=1)
-        self.dc = Pin(dc, Pin.OUT, value=1)
-        if rst is not None:
-            self.rst = Pin(rst, Pin.OUT, value=1)
-            self.rst.on()
-            time.sleep_ms(5)
-            self.rst.off()
-            time.sleep_ms(20)
-            self.rst.on()
-            time.sleep_ms(150)
-        else:
-            self.rst = None
-        self.spi = spi
-        if rotate == 90:
-            self.rotate = 1
-        elif rotate == 180:
-            self.rotate = 2
-        elif rotate == 270:
-            self.rotate = 3
-        else:
-            self.rotate = 0
-        self.disptype = disptype
+    def __init__(self, spi, rst, dc, cs, bl=None, width=80, height=160, offset=None, rotate=1):
+        """
+        :param spi:
+        :param rst:
+        :param dc:
+        :param cs: 使能
+        :param bl: 背光
+        :param width: 宽度
+        :param height: 高度
+        :param offset: 偏移 (x, y): (23, 0)|(-1, 23)
+        :param rotate: 旋转 0 横屏 1 竖屏
+        """
+        # 根据方向自动设置偏移
+        self.rotate = rotate
+        self.offset = offset
+        if offset is None and rotate == 1:
+            self.offset = (-1, 23)
+        elif offset is None and rotate == 0:
+            self.offset = (23, 0)
         self.width = width
         self.height = height
-        self.xoffset = xoffset
-        self.yoffset = yoffset
-        self._rgb = rgb
-        self.initialized = False
-        try:
-            self.buffer = bytearray(self.width * self.height * 2)
-        except:
-            return
-        super().__init__(self.buffer, self.width, self.height, framebuf.RGB565)
-        try:
-            self.init_display()
-            self.initialized = True
-        except:
-            pass
 
-    def init_display(self):  # red tab  / m5stickc
-        if self.disptype == 'r':
-            self.init_display_r()
-        elif self.disptype == 'b':
-            self.init_display_b()
-        elif self.disptype == 'b2':
-            self.init_display_b2()
-        elif self.disptype == 'g':
-            self.init_display_g()
+        self.spi = spi
+        self.rst = machine.Pin(rst, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+        self.dc = machine.Pin(dc, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+        self.cs = machine.Pin(cs, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+        if bl is not None:
+            self.bl = machine.PWM(machine.Pin(bl))
+
+        gc.collect()
+        self.buffer = bytearray(self.height * self.width * 2)
+        super().__init__(self.buffer, self.width, self.height, framebuf.RGB565)
+        self.init()
+        self.set_windows()
         self.clear()
 
-    def init_display_r(self):  # red tab  / m5stickc
-        cols = bytearray(4)
-        rows = bytearray(4)
-        cols[1] = self.xoffset
-        rows[1] = self.yoffset
-        cols[3] = self.width - 1 + self.xoffset
-        rows[3] = self.height - 1 + self.yoffset
-        for cmd, data, delay in [
-            (0x01, None, 150),  # SWRESET
-            (0x11, None, 500),  # SLPOUT
-            (0xb1, b'\x01\x2c\x2d', None),  # FRMCTR1
-            (0xb2, b'\x01\x2c\x2d', None),  # FRMCTR2
-            (0xb3, b'\x01\x2c\x2d\x01\x2c\x2d', None),  # FRMCTR3
-            (0xb4, b'\x07', None),  # INVCTR
-            (0xc0, b'\xa2\x02\x84', None),  # PWCTR1
-            (0xc1, b'\xc5', None),  # PWCTR2
-            (0xc2, b'\x0a\x00', None),  # PWCTR3
-            (0xc3, b'\x8a\x2a', None),  # PWCTR4
-            (0xc4, b'\x8a\xee', None),  # PWCTR5
-            (0xc5, b'\x0e', None),  # VMCTR1
-            (0x20, None, None),  # INVOFF
-            (0x36, b'\xc8', None),  # MADCTL
-            (0x3a, b'\x05', None),  # COLMOD
-            (0x2a, cols, None),  # Column address set.
-            (0x2b, rows, None),  # Row address set.
-            (0x21, None, None),  # INVON
-            (0xe0, b'\x02\x1c\x07\x12\x37\x32\x29\x2d\x29\x25\x2b\x39\x00\x01\x03\x10', None),  # GMCTRP1
-            (0xe1, b'\x03\x1d\x07\x06\x2e\x2c\x29\x2d\x2e\x2e\x37\x3f\x00\x00\x02\x10', None),  # GMCTRN1
-            (0x13, None, 10),  # NORON
-            (0x29, None, 100),  # DISPON
-            (0x36, b'\xcc', 10),  # MADCTL
-        ]:
-            self.write_cmd(cmd)
-            if data:
-                self.write_data(data)
-            if delay:
-                time.sleep_ms(delay)
+    def set_windows(self):
+        """
+        设置窗口
+        :return:
+        """
+        x_start = self.offset[0] + 1
+        x_end = self.width + self.rotate + self.offset[0]
+        y_start = self.offset[1] + 1
+        y_end = self.height + self.rotate + self.offset[1]
+        self.write_cmd(CASET)
+        self.write_data(bytearray([0x00, x_start, 0x00, x_end]))
 
-    def init_display_b(self):  # blue tab
-        cols = bytearray(4)
-        rows = bytearray(4)
-        self.xoffset = 2
-        self.yoffset = 1
-        cols[1] = self.xoffset
-        rows[1] = self.yoffset
-        cols[3] = self.width - 1 + self.xoffset
-        rows[3] = self.height - 1 + self.yoffset
-        for cmd, data, delay in [
-            (0x01, None, 50),  # SWRESET
-            (0x11, None, 500),  # SLPOUT
-            (0x3a, b'\x05', 10),  # COLMOD
-            (0xb1, b'\x00\x06\x03', 10),  # FRMCTR1
-            (0x36, b'\x08', None),  # MADCTL
-            (0xb6, b'\x15\x02', None),  # DISSET5
-            (0xb4, b'\x00', None),  # INVCTR
-            (0xc0, b'\x02\x70', 10),  # PWCTR1
-            (0xc1, b'\x05', None),  # PWCTR2
-            (0xc2, b'\x01\x02', None),  # PWCTR3
-            (0xc5, b'\x3c\x38', 10),  # VMCTR1
-            (0xfc, b'\x11\x15', None),  # PWCTR6
-            (0xe0, b'\x02\x1c\x07\x12\x37\x32\x29\x2d\x29\x25\x2b\x39\x00\x01\x03\x10', None),  # GMCTRP1
-            (0xe1, b'\x03\x1d\x07\x06\x2e\x2c\x29\x2d\x2e\x2e\x37\x3f\x00\x00\x02\x10', 10),  # GMCTRN1
-            (0x2a, cols, None),  # Column address set.
-            (0x2b, rows, None),  # Row address set.
-            (0x13, None, 10),  # NORON
-            (0x2c, None, 500),  # RAMWR
-            (0x29, None, 500),  # DISPON
-        ]:
-            self.write_cmd(cmd)
-            if data:
-                self.write_data(data)
-            if delay:
-                time.sleep_ms(delay)
+        self.write_cmd(RASET)
+        self.write_data(bytearray([0x00, y_start, 0x00, y_end]))
 
-    def init_display_b2(self):  # blue tab2
-        cols = bytearray(4)
-        rows = bytearray(4)
-        self.xoffset = 2
-        self.yoffset = 1
-        cols[1] = self.xoffset
-        rows[1] = self.yoffset
-        cols[3] = self.width - 1 + self.xoffset
-        rows[3] = self.height - 1 + self.yoffset
-        for cmd, data, delay in [
-            (0x01, None, 50),  # SWRESET
-            (0x11, None, 500),  # SLPOUT
-            (0xb1, b'\x01\x2c\x2d', 10),  # FRMCTR1
-            (0xb2, b'\x01\x2c\x2d', 10),  # FRMCTR2
-            (0xb3, b'\x01\x2c\x2d', 10),  # FRMCTR3
-            (0xb4, b'\x07', None),  # INVCTR
-            (0xc0, b'\xa2\x02\x84', 10),  # PWCTR1
-            (0xc1, b'\xc5', None),  # PWCTR2
-            (0xc2, b'\x0a\x00', None),  # PWCTR3
-            (0xc3, b'\x8a\x2a', None),  # PWCTR4
-            (0xc4, b'\x8a\xee', None),  # PWCTR5
-            (0xc5, b'\x0e', None),  # VMCTR1
-            (0x36, b'\xc8', None),  # MADCTL
-            (0xe0, b'\x02\x1c\x07\x12\x37\x32\x29\x2d\x29\x25\x2b\x39\x00\x01\x03\x10', None),  # GMCTRP1
-            (0xe1, b'\x03\x1d\x07\x06\x2e\x2c\x29\x2d\x2e\x2e\x37\x3f\x00\x00\x02\x10', 10),  # GMCTRN1
-            (0x2a, cols, None),  # Column address set.
-            (0x2b, rows, None),  # Row address set.
-            (0x3a, b'\x05', 10),  # COLMOD
-            (0x13, None, 10),  # NORON
-            (0x2c, None, 500),  # RAMWR
-            (0x29, None, 500),  # DISPON
-        ]:
-            self.write_cmd(cmd)
-            if data:
-                self.write_data(data)
-            if delay:
-                time.sleep_ms(delay)
+        self.write_cmd(RAMWR)
 
-    def init_display_g(self):  # green tab
-        cols = bytearray(4)
-        rows = bytearray(4)
-        cols[1] = self.xoffset
-        rows[1] = self.yoffset
-        cols[3] = self.width - 1 + self.xoffset
-        rows[3] = self.height - 1 + self.yoffset
-        rgb = TFTRGB if self._rgb else TFTBGR
-        maddata = bytearray([TFTRotations[self.rotate] | rgb])
-        for cmd, data, delay in [
-            (0x01, None, 150),  # SWRESET
-            (0x11, None, 255),  # SLPOUT
-            (0xb1, b'\x01\x2c\x2d', None),  # FRMCTR1
-            (0xb2, b'\x01\x2c\x2d', None),  # FRMCTR2
-            (0xb3, b'\x01\x2c\x2d\x01\x2c\x2d', 10),  # FRMCTR3
-            (0xb4, b'\x07', None),  # INVCTR
-            (0xc0, b'\xa2\x02\x84', None),  # PWCTR1
-            (0xc1, b'\xc5', None),  # PWCTR2
-            (0xc2, b'\x0a\x00', None),  # PWCTR3
-            (0xc3, b'\x8a\x2a', None),  # PWCTR4
-            (0xc4, b'\x8a\xee', None),  # PWCTR5
-            (0xc5, b'\x0e', None),  # VMCTR1
-            (0x20, None, None),  # INVOFF
-            (0x36, maddata, None),  # MADCTL
-            (0x3a, b'\x05', None),  # COLMOD
-            (0x2a, cols, None),  # Column address set.
-            (0x2b, rows, None),  # Row address set.
-            (0x21, None, None),  # INVON
-            (0xe0, b'\x02\x1c\x07\x12\x37\x32\x29\x2d\x29\x25\x2b\x39\x00\x01\x03\x10', None),  # GMCTRP1
-            (0xe1, b'\x03\x1d\x07\x06\x2e\x2c\x29\x2d\x2e\x2e\x37\x3f\x00\x00\x02\x10', None),  # GMCTRN1
-            (0x13, None, 10),  # NORON
-            (0x29, None, 100),  # DISPON
-        ]:
-            self.write_cmd(cmd)
-            if data:
-                self.write_data(data)
-            if delay:
-                time.sleep_ms(delay)
+    def init(self):
+        self.reset()
 
-    def rgb(self, aTF=True):
-        '''True = rgb else bgr'''
-        self._rgb = aTF
-        self._setMADCTL()
+        self.write_cmd(SWRESET)  # 0x01
+        time.sleep_us(150)
+        self.write_cmd(SLPOUT)  # 0x11
+        time.sleep_us(300)
 
-    def rotation(self, aRot):
-        '''0 - 3. Starts vertical with top toward pins and rotates 90 deg
-           clockwise each step.'''
-        if (0 <= aRot < 4):
-            rotchange = self.rotate ^ aRot
-            self.rotate = aRot
-            # If switching from vertical to horizontal swap x,y
-            # (indicated by bit 0 changing).
-            if (rotchange & 1):
-                i = self.width
-                self.width = self.height
-                self.height = i
-                i = self.xoffset
-                self.xoffset = self.yoffset
-                self.yoffset = i
-            self._setMADCTL()
+        self.write_cmd(FRMCTR1)  # 0xB1
+        self.write_data(bytearray([0x01, 0x2C, 0x2D]))
+        self.write_cmd(FRMCTR2)
+        self.write_data(bytearray([0x01, 0x2C, 0x2D]))
+        self.write_cmd(FRMCTR3)
+        self.write_data(bytearray([0x01, 0x2C, 0x2D, 0x01, 0x2C, 0x2D]))
+        time.sleep_us(10)
 
-    def _setMADCTL(self):
-        self.write_cmd(0x36)
-        rgb = TFTRGB if self._rgb else TFTBGR
-        self.write_data(bytearray([TFTRotations[self.rotate] | rgb]))
+        self.write_cmd(INVCTR)
+        self.write_data(bytearray([0x07]))
+
+        self.write_cmd(PWCTR1)
+        self.write_data(bytearray([0xA2, 0x02, 0x84]))
+        self.write_cmd(PWCTR2)
+        self.write_data(bytearray([0xC5]))
+        self.write_cmd(PWCTR3)
+        self.write_data(bytearray([0x0A, 0x00]))
+        self.write_cmd(PWCTR4)
+        self.write_data(bytearray([0x8A, 0x2A]))
+        self.write_cmd(PWCTR5)
+        self.write_data(bytearray([0x8A, 0xEE]))
+        self.write_cmd(VMCTR1)
+        self.write_data(bytearray([0x0E]))
+
+        self.write_cmd(INVOFF)
+
+        self.write_cmd(MADCTL)
+        self.write_data(bytearray([ROTATIONS[self.rotate]]))
+
+        self.write_cmd(COLMOD)
+        self.write_data(bytearray([0x05]))
+
+        self.write_cmd(GMCTRP1)
+        self.write_data(
+            bytearray([0x02, 0x1c, 0x07, 0x12, 0x37, 0x32, 0x29, 0x2d, 0x29, 0x25, 0x2b, 0x39, 0x00, 0x01, 0x03, 0x10]))
+
+        self.write_cmd(GMCTRN1)
+        self.write_data(
+            bytearray([0x03, 0x1d, 0x07, 0x06, 0x2e, 0x2c, 0x29, 0x2d, 0x2e, 0x2e, 0x37, 0x3f, 0x00, 0x00, 0x02, 0x10]))
+
+        self.write_cmd(NORON)
+        time.sleep_us(10)
+
+        self.write_cmd(DISPON)
+        time.sleep_us(100)
+
+        self.cs(1)
+
+    def reset(self):
+        """
+        设备重置
+        :return:
+        """
+        self.rst(1)
+        time.sleep(0.2)
+        self.rst(0)
+        time.sleep(0.2)
+        self.rst(1)
+        time.sleep(0.2)
+
+    def back_light(self, value):
+        """
+        背光调节
+        :param value: 背光等级 0 ~ 256
+        :return:
+        """
+        self.bl.freq(1000)
+        if value >= 0xff:
+            value = 0xff
+        data = value * 0xffff >> 8
+        self.bl.duty_u16(data)
 
     def clear(self):
+        """
+        清屏
+        :return:
+        """
         self.fill(0)
         self.show()
 
+    def circle(self, center, radius, section=100):
+        """
+        画圆
+        :param center: 中心(x, y)
+        :param radius: 半径
+        :param section: 分段
+        :return:
+        """
+        arr = []
+        for m in range(section + 1):
+            x = round(radius * math.cos((2 * math.pi / section) * m - math.pi) + center[0])
+            y = round(radius * math.sin((2 * math.pi / section) * m - math.pi) + center[1])
+            arr.append([x, y])
+        for i in range(len(arr) - 1):
+            self.line(*arr[i], *arr[i + 1], 1)
+
     def show(self):
-        cols = bytearray(4)
-        rows = bytearray(4)
-        cols[1] += self.xoffset
-        cols[3] = self.width - 1 + self.xoffset
-        rows[1] += self.yoffset
-        rows[3] = self.height - 1 + self.yoffset
-        self.write_cmd(0x2a)
-        self.write_data(cols)
-        self.write_cmd(0x2b)
-        self.write_data(rows)
-        self.write_cmd(0x2c)
+        """
+        显示
+        :return:
+        """
+        self.set_windows()  # 如果没有这行就会偏移
         self.write_data(self.buffer)
 
     def write_cmd(self, cmd):
-        self.dc.off()
-        self.cs.off()
-        self.spi.write(bytes([cmd]))
-        self.cs.on()
+        self.dc(0)
+        self.cs(0)
+        self.spi.write(bytearray([cmd]))
+        self.cs(1)
 
     def write_data(self, buf):
-        self.dc.on()
-        self.cs.off()
+        self.dc(1)
+        self.cs(0)
         self.spi.write(buf)
-        self.cs.on()
+        self.cs(1)
