@@ -1,20 +1,20 @@
 """
 合宙 Air10x 系列屏幕扩展板驱动
 160(H)RGB x 80(V)
-https://wiki.luatos.com/peripherals/lcd_air10x/index.html
 
-使用方法:
+使用方法(以合宙ESP32C3为例):
     from machine import SPI, Pin
     from st7735 import ST7735
 
     spi = SPI(1, 30000000, sck=Pin(2), mosi=Pin(3))
-    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=1)  # 横屏显示
-    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=0)  # 竖屏显示
+    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=1)  # 直插横屏显示
+    ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=0)  # 直插竖屏显示
 
 本款LCD使用的内置控制器为ST7735S，是一款162 x RGB x 132像素的LCD控制器,而本LCD本身的像素为160(H)RGB x 80(V)。由于LCD的显示
 起始位置与控制器的原点不一致，因此在使用控制器初始化显示全屏显示区域时需要对做偏移处理：水平方向从第二个像素点开始显示，垂直方向从第27个像素点
 开始。这样就可以保证显示的LCD中RAM对应的位置与实际一致。(https://www.waveshare.net/wiki/Pico-LCD-0.96)
 
+屏幕详细信息: https://wiki.luatos.com/peripherals/lcd_air10x/index.html
 ST7735S文档: https://www.waveshare.net/w/upload/e/e2/ST7735S_V1.1_20111121.pdf
 FrameBuf文档: https://docs.micropython.org/en/latest/library/framebuf.html
 """
@@ -24,41 +24,54 @@ import math
 
 import machine
 import framebuf
+from micropython import const
 
-SWRESET = 0x01
-SLPOUT = 0x11
-NORON = 0x13
+SWRESET = const(0x01)
+SLPOUT = const(0x11)
+NORON = const(0x13)
 
-INVOFF = 0x20
-DISPON = 0x29
-CASET = 0x2A
-RASET = 0x2B
-RAMWR = 0x2C
+INVOFF = const(0x20)
+DISPON = const(0x29)
+CASET = const(0x2A)
+RASET = const(0x2B)
+RAMWR = const(0x2C)
 
-MADCTL = 0x36
-COLMOD = 0x3A
+MADCTL = const(0x36)
+COLMOD = const(0x3A)
 
-FRMCTR1 = 0xB1
-FRMCTR2 = 0xB2
-FRMCTR3 = 0xB3
+FRMCTR1 = const(0xB1)
+FRMCTR2 = const(0xB2)
+FRMCTR3 = const(0xB3)
 
-INVCTR = 0xB4
+INVCTR = const(0xB4)
 
-PWCTR1 = 0xC0
-PWCTR2 = 0xC1
-PWCTR3 = 0xC2
-PWCTR4 = 0xC3
-PWCTR5 = 0xC4
-VMCTR1 = 0xC5
+PWCTR1 = const(0xC0)
+PWCTR2 = const(0xC1)
+PWCTR3 = const(0xC2)
+PWCTR4 = const(0xC3)
+PWCTR5 = const(0xC4)
+VMCTR1 = const(0xC5)
 
-GMCTRP1 = 0xE0
-GMCTRN1 = 0xE1
+GMCTRP1 = const(0xE0)
+GMCTRN1 = const(0xE1)
 
 ROTATIONS = [0x00, 0x60]  # 只给了两个旋转方向
 
 
+def color(r, g, b):
+    i = (((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)).to_bytes(2, "little")
+    return (i[0] << 8) + i[1]
+
+
+RED = color(255, 0, 0)
+GREEN = color(0, 255, 0)
+BLUE = color(0, 0, 255)
+WHITE = color(255, 255, 255)
+BLACK = color(0, 0, 0)
+
+
 class ST7735(framebuf.FrameBuffer):
-    def __init__(self, spi, rst, dc, cs, bl=None, width=80, height=160, offset=None, rotate=1):
+    def __init__(self, spi, rst, dc, cs, bl=None, width=80, height=160, offset=None, rotate=1, rgb=True):
         """
         :param spi:
         :param rst:
@@ -67,16 +80,18 @@ class ST7735(framebuf.FrameBuffer):
         :param bl: 背光
         :param width: 宽度
         :param height: 高度
-        :param offset: 偏移 (x, y): (23, 0)|(-1, 23)
+        :param offset: 偏移 (x, y): (23, -1)|(-1, 23)
         :param rotate: 旋转 0 横屏 1 竖屏
+        :param rgb: RGB 色彩模式
         """
         # 根据方向自动设置偏移
         self.rotate = rotate
         self.offset = offset
+        self.rgb = rgb
         if offset is None and rotate == 1:
             self.offset = (-1, 23)
         elif offset is None and rotate == 0:
-            self.offset = (23, 0)
+            self.offset = (23, -1)
         self.width = width
         self.height = height
 
@@ -114,12 +129,12 @@ class ST7735(framebuf.FrameBuffer):
     def init(self):
         self.reset()
 
-        self.write_cmd(SWRESET)  # 0x01
+        self.write_cmd(SWRESET)
         time.sleep_us(150)
-        self.write_cmd(SLPOUT)  # 0x11
+        self.write_cmd(SLPOUT)
         time.sleep_us(300)
 
-        self.write_cmd(FRMCTR1)  # 0xB1
+        self.write_cmd(FRMCTR1)
         self.write_data(bytearray([0x01, 0x2C, 0x2D]))
         self.write_cmd(FRMCTR2)
         self.write_data(bytearray([0x01, 0x2C, 0x2D]))
@@ -146,7 +161,7 @@ class ST7735(framebuf.FrameBuffer):
         self.write_cmd(INVOFF)
 
         self.write_cmd(MADCTL)
-        self.write_data(bytearray([ROTATIONS[self.rotate]]))
+        self.write_data(bytearray([ROTATIONS[self.rotate] | 0x00 if self.rgb else 0x08]))
 
         self.write_cmd(COLMOD)
         self.write_data(bytearray([0x05]))
@@ -179,6 +194,18 @@ class ST7735(framebuf.FrameBuffer):
         self.rst(1)
         time.sleep(0.2)
 
+    def write_cmd(self, cmd):
+        self.dc(0)
+        self.cs(0)
+        self.spi.write(bytearray([cmd]))
+        self.cs(1)
+
+    def write_data(self, buf):
+        self.dc(1)
+        self.cs(0)
+        self.spi.write(buf)
+        self.cs(1)
+
     def back_light(self, value):
         """
         背光调节
@@ -199,6 +226,14 @@ class ST7735(framebuf.FrameBuffer):
         self.fill(0)
         self.show()
 
+    def show(self):
+        """
+        显示
+        :return:
+        """
+        self.set_windows()  # 如果没有这行就会偏移
+        self.write_data(self.buffer)
+
     def circle(self, center, radius, section=100):
         """
         画圆
@@ -215,22 +250,8 @@ class ST7735(framebuf.FrameBuffer):
         for i in range(len(arr) - 1):
             self.line(*arr[i], *arr[i + 1], 1)
 
-    def show(self):
-        """
-        显示
-        :return:
-        """
-        self.set_windows()  # 如果没有这行就会偏移
-        self.write_data(self.buffer)
-
-    def write_cmd(self, cmd):
-        self.dc(0)
-        self.cs(0)
-        self.spi.write(bytearray([cmd]))
-        self.cs(1)
-
-    def write_data(self, buf):
-        self.dc(1)
-        self.cs(0)
-        self.spi.write(buf)
-        self.cs(1)
+    def image(self, file_name):
+        with open(file_name, "rb") as bmp:
+            for b in range(0, 80 * 160 * 2, 1024):
+                self.buffer[b:b + 1024] = bmp.read(1024)
+            self.show()

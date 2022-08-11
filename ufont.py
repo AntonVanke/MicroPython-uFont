@@ -184,10 +184,10 @@ class BMFont:
             for _rol in _col:
                 if _rol == 1:
                     _rol = _color
-                color_array += struct.pack(">H", _rol)
+                color_array += struct.pack("<H", _rol)
         return color_array
 
-    def text(self, display, string, x=0, y=0, color=1, font_size=16, reverse=False, clear=False, show=False,
+    def text(self, display, string, x=0, y=0, color=1, font_size=None, reverse=False, clear=False, show=False,
              half_char=True, *args, **kwargs):
         """
         显示文字
@@ -203,6 +203,7 @@ class BMFont:
         :param clear: 显示前清屏
         :return:
         """
+        # 如果没有给定 font_size ，使用字体默认大小
         if font_size is None:
             font_size = self.font_size
 
@@ -220,11 +221,12 @@ class BMFont:
             elif string[char] == '\t':
                 x = ((x // font_size) + 1) * font_size + initial_x % font_size
                 continue
-            # 其它的控制字符
+
+            # 其它的控制字符不显示
             elif ord(string[char]) < 16:
                 continue
 
-            # 超过范围
+            # 超过范围的字符不会显示
             if x > display.width or y > display.height:
                 continue
 
