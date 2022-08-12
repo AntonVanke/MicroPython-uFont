@@ -234,9 +234,10 @@ class ST7735(framebuf.FrameBuffer):
         self.set_windows()  # 如果没有这行就会偏移
         self.write_data(self.buffer)
 
-    def circle(self, center, radius, section=100):
+    def circle(self, center, radius, c=color(255, 255, 255), section=100):
         """
         画圆
+        :param c: 颜色
         :param center: 中心(x, y)
         :param radius: 半径
         :param section: 分段
@@ -248,7 +249,7 @@ class ST7735(framebuf.FrameBuffer):
             y = round(radius * math.sin((2 * math.pi / section) * m - math.pi) + center[1])
             arr.append([x, y])
         for i in range(len(arr) - 1):
-            self.line(*arr[i], *arr[i + 1], 1)
+            self.line(*arr[i], *arr[i + 1], c)
 
     def image(self, file_name):
         with open(file_name, "rb") as bmp:
