@@ -180,11 +180,12 @@ class BMFont:
     @staticmethod
     def _with_color(bitarray, _color):
         color_array = b''
-        for _col in bitarray:
-            for _rol in _col:
-                if _rol == 1:
-                    _rol = _color
-                color_array += struct.pack("<H", _rol)
+        for _col in range(len(bitarray)):
+            for _row in range(len(bitarray)):
+                if bitarray[_col][_row] == 1:
+                    color_array += struct.pack("<H", _color)
+                else:
+                    color_array += struct.pack("<H", 0)
         return color_array
 
     def text(self, display, string, x=0, y=0, color=1, font_size=None, reverse=False, clear=False, show=False,
@@ -242,7 +243,7 @@ class BMFont:
                 display.blit(
                     framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
             else:
-                byte_data = self._with_color(byte_to_bit(byte_data, font_size), color)
+                byte_data = self._with_color(byte_to_bit(byte_data, math.ceil(font_size / 8) * 8), color)
                 display.blit(
                     framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.RGB565), x, y)
             if ord(string[char]) < 128 and half_char:
