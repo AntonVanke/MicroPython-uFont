@@ -2,6 +2,12 @@
 
 MicroPython 的中文显示模块，使其可以在显示模块上显示汉字。此外也可以自定义字体集，使其能够满足不同存储空间、不同语言的要求。
 
+### 视频资源
+
+[MicroPython中文字库教程](https://www.bilibili.com/video/BV12B4y1B7Ff/)
+
+[MicroPython 中文字库的使用演示文档](MicroPython 中文字库的使用演示文档.md)
+
 ### 简单上手
 
 所需
@@ -45,12 +51,10 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 │      st7735_demo.py  # 128 * 180 TFT 例子(不完善)
 │
 ├─driver  # 驱动
-│      e1in54.py  # 1.54 英寸墨水屏驱动
-│      ssd1306.py  # 0.96 英寸 OLED 驱动
-│      st7735.py  # 128 * 180 TFT 驱动
-│
-└─firmware  # MicroPython 固件
-        esp32c3-20220729-unstable-v1.19.1-223-g963e599ec.bin
+       e1in54.py  # 1.54 英寸墨水屏驱动
+       ssd1306.py  # 0.96 英寸 OLED 驱动
+       st7735.py  # 128 * 180 TFT 驱动
+
 ```
 
 上传`ufont.py`、`unifont-14-12888-16.v3.bmf`到`MicroPython`根目录
