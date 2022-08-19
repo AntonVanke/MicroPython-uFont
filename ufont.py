@@ -6,26 +6,6 @@ import struct
 import framebuf
 
 
-def rgb(r, g, b):
-    """
-    RGB255 to RGB565
-    :param r:
-    :param g:
-    :param b:
-    :return:
-    """
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-
-
-def hrgb(h):
-    """
-    hex(RGB225) to RGB565
-    :param h:
-    :return:
-    """
-    return (((h >> 16 & 0xff) & 0xF8) << 8) | (((h >> 8 & 0xff) & 0xFC) << 3) | ((h & 0xff) >> 3)
-
-
 def reshape(bitarray):
     """
     改成 n * 8 列表
