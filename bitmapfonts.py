@@ -36,8 +36,8 @@ parser.add_argument('-v', '--version', action='version',
                     version=f'点阵字体版本 : {__version__}',
                     help='显示生成的点阵字体版本')
 parser.add_argument("-ff", "--font-file", help="字体文件", type=str, required=True)
-group.add_argument("-tf", "--text-file", help="文字文件", type=str, default="text.txt")
-group.add_argument("-t", "--text", help="生成的文字", type=str)
+group.add_argument("-tf", "--text-file", help="文字字符集文件", type=str, default="text.txt")
+group.add_argument("-t", "--text", help="文字字符集", type=str)
 parser.add_argument("-fs", "--font-size", help="生成字体字号", default=16, type=int)
 parser.add_argument("-o", "--offset", nargs="*", help="生成字体偏移", type=int, default=[0, 0])
 parser.add_argument("-bfn", "--bitmap-font-name", help="生成的点阵字体文件名称", type=str)
