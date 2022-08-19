@@ -1,6 +1,6 @@
 __version__ = 3
 """
-usage: test.py [-h] [-v] -ff FONT_FILE [-tf TEXT_FILE] [-fs FONT_SIZE] [-o [OFFSET ...]] [-bfn BITMAP_FONT_NAME]
+usage: bitmapfonts.py [-h] [-v] -ff FONT_FILE [-tf TEXT_FILE] [-fs FONT_SIZE] [-o [OFFSET ...]] [-bfn BITMAP_FONT_NAME]
 
 生成点阵字体文件
 
@@ -18,7 +18,7 @@ options:
   -bfn BITMAP_FONT_NAME, --bitmap-font-name BITMAP_FONT_NAME
                         生成的点阵字体文件名称
 example:
-    python test.py -ff unifont-14.0.04.ttf -tf text.txt -fs 16 -o 0 0 -bfn example.bmf
+    python bitmapfonts.py -ff unifont-14.0.04.ttf -tf text.txt -fs 16 -o 0 0 -bfn example.bmf
 """
 import struct
 import argparse
@@ -31,18 +31,24 @@ except ImportError as err:
     exit()
 
 parser = argparse.ArgumentParser(description="生成点阵字体文件")
+group = parser.add_mutually_exclusive_group()
 parser.add_argument('-v', '--version', action='version',
                     version=f'点阵字体版本 : {__version__}',
                     help='显示生成的点阵字体版本')
 parser.add_argument("-ff", "--font-file", help="字体文件", type=str, required=True)
-parser.add_argument("-tf", "--text-file", help="文字文件", type=str, default="text.txt")
+group.add_argument("-tf", "--text-file", help="文字文件", type=str, default="text.txt")
+group.add_argument("-t", "--text", help="生成的文字", type=str)
 parser.add_argument("-fs", "--font-size", help="生成字体字号", default=16, type=int)
 parser.add_argument("-o", "--offset", nargs="*", help="生成字体偏移", type=int, default=[0, 0])
 parser.add_argument("-bfn", "--bitmap-font-name", help="生成的点阵字体文件名称", type=str)
 args = parser.parse_args()
 
 FONT = ImageFont.truetype(font=args.font_file, size=args.font_size)
-WORDS = list(set(list(open(args.text_file, encoding="utf-8").read())))
+
+if args.text:
+    WORDS = list(set(list(args.text)))
+else:
+    WORDS = list(set(list(open(args.text_file, encoding="utf-8").read())))
 WORDS.sort()
 FONT_NUM = len(WORDS)
 
@@ -99,7 +105,7 @@ def get_unicode(word) -> bytes:
 
 
 # 生成的点阵字体文件
-print(args)
+# print(args)
 bitmap_fonts_name = args.bitmap_font_name or args.font_file.split('.')[0] + "-" + str(FONT_NUM) + "-" + str(
     args.font_size) + ".v3.bmf"
 bitmap_fonts = open(bitmap_fonts_name, "wb")
@@ -123,7 +129,7 @@ start_bitmap = bitmap_fonts.tell()
 print("\t位图起始字节：", hex(start_bitmap))
 for w in WORDS:
     bitmap_fonts.write(to_bitmap(w))
-print("\t文件大小：", bitmap_fonts.tell() // 1024, "Kbyte")
+print(f"\t文件大小：{bitmap_fonts.tell() / 1024:.4f}Kbyte")
 bitmap_fonts.seek(4, 0)
 bitmap_fonts.write(struct.pack(">i", start_bitmap)[1:4])
 print(f"生成成功，文件名称：{bitmap_fonts_name}")
