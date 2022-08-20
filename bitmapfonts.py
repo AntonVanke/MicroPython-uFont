@@ -1,6 +1,6 @@
 __version__ = 3
 """
-usage: bitmapfonts.py [-h] [-v] -ff FONT_FILE [-tf TEXT_FILE] [-fs FONT_SIZE] [-o [OFFSET ...]] [-bfn BITMAP_FONT_NAME]
+usage: bitmapfonts.py [-h] [-v] -ff FONT_FILE [-tf TEXT_FILE | -t TEXT] [-fs FONT_SIZE] [-o [OFFSET ...]] [-bfn BITMAP_FONT_NAME]
 
 生成点阵字体文件
 
@@ -10,7 +10,8 @@ options:
   -ff FONT_FILE, --font-file FONT_FILE
                         字体文件
   -tf TEXT_FILE, --text-file TEXT_FILE
-                        文字文件
+                        文字字符集文件
+  -t TEXT, --text TEXT  文字字符集
   -fs FONT_SIZE, --font-size FONT_SIZE
                         生成字体字号
   -o [OFFSET ...], --offset [OFFSET ...]
@@ -107,7 +108,7 @@ def get_unicode(word) -> bytes:
 # 生成的点阵字体文件
 # print(args)
 bitmap_fonts_name = args.bitmap_font_name or args.font_file.split('.')[0] + "-" + str(FONT_NUM) + "-" + str(
-    args.font_size) + ".v3.bmf"
+    args.font_size) + f".v{__version__}.bmf"
 bitmap_fonts = open(bitmap_fonts_name, "wb")
 print(f"正在生成点阵字体文件，字体数量{FONT_NUM}：")
 # 字节记录占位

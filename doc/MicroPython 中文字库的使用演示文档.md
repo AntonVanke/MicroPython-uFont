@@ -31,7 +31,7 @@ Github: https://github.com/AntonVanke/MicroPython-Chinese-Font
 
    ```python
    import ufont
-   f = ufont.BMFont("unifont-14-12888-16.v3.bmf")
+   f = ufont.BMFont("../unifont-14-12888-16.v3.bmf")
    ```
 
 4. 测试字体

@@ -21,20 +21,6 @@ def reshape(bitarray):
     return arr
 
 
-def show_bitmap(arr):
-    """
-    显示点阵字 MONO_HLSB
-    :return:
-    """
-    for row in arr:
-        for i in row:
-            if i:
-                print('*', end=' ')
-            else:
-                print('.', end=' ')
-        print()
-
-
 def byte_to_bit(byte_arr, font_size):
     """
     :param byte_arr:

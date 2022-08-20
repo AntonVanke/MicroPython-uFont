@@ -6,7 +6,7 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 
 [MicroPython中文字库教程](https://www.bilibili.com/video/BV12B4y1B7Ff/)
 
-[MicroPython 中文字库的使用演示文档](MicroPython 中文字库的使用演示文档.md)
+[MicroPython 中文字库的使用演示文档](/doc/MicroPython%20中文字库的使用演示文档.md)
 
 ### 简单上手
 
