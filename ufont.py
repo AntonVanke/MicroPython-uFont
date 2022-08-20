@@ -155,9 +155,10 @@ class BMFont:
         return color_array
 
     def text(self, display, string, x=0, y=0, color=1, font_size=None, reverse=False, clear=False, show=False,
-             half_char=True, *args, **kwargs):
+             half_char=True, auto_wrap=False, *args, **kwargs):
         """
         显示文字
+        :param auto_wrap: 自动换行
         :param half_char: 英文是否半格显示
         :param color: 文字颜色
         :param display: 继承 FrameBuffer 的显示驱动类
@@ -179,6 +180,12 @@ class BMFont:
         initial_x = x
 
         for char in range(len(string)):
+            # 是否自动换行
+            if auto_wrap:
+                if auto_wrap and ((x + font_size // 2 >= display.width and ord(string[char]) < 128 and half_char) or
+                                  (x + font_size >= display.width and (not half_char or ord(string[char]) > 128))):
+                    y += font_size
+                    x = initial_x
             # 回车
             if string[char] == '\n':
                 y += font_size
@@ -216,5 +223,6 @@ class BMFont:
                 x += font_size // 2
             else:
                 x += font_size
+
         if show:
             display.show()
