@@ -2,11 +2,13 @@
 
 MicroPython 的中文显示模块，使其可以在显示模块上显示汉字。此外也可以自定义字体集，使其能够满足不同存储空间、不同语言的要求。
 
-### 视频资源
+### 资源
 
 [MicroPython中文字库教程](https://www.bilibili.com/video/BV12B4y1B7Ff/)
 
 [MicroPython 中文字库的使用演示文档](/doc/MicroPython%20中文字库的使用演示文档.md)
+
+[如何生成点阵字体文件](/doc/如何生成点阵字体文件.md)
 
 ### 简单上手
 
@@ -36,25 +38,27 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 
 **项目文件**
 
-```sh
--
-│  bitmapfonts.py  # 点阵字体生成
-│  bmftest.py  # 点阵字体测试
-│  text.txt  # 默认字体集，用于生成点阵字体，可以自定义文字
-│  ufont.py  # 文字显示模块
-│  unifont-14-12888-16.v3.bmf  # 生成的点阵字体
-│  unifont-14.0.04.ttf  # Unifont 字体 https://savannah.gnu.org/projects/unifont/
-│
-├─demo  # 例子
-│      epaper1in54_demo.py  # 1.54 英寸墨水屏例子
-│      ssd1306_demo.py  # 0.96 英寸 OLED 例子
-│      st7735_demo.py  # 128 * 180 TFT 例子(不完善)
-│
-├─driver  # 驱动
-       e1in54.py  # 1.54 英寸墨水屏驱动
-       ssd1306.py  # 0.96 英寸 OLED 驱动
-       st7735.py  # 128 * 180 TFT 驱动
-
+```shell
+.
+├── LICENSE
+├── README.md
+├── bitmapfonts.py  # 点阵字体生成
+├── demo
+│   ├── epaper1in54_demo.py  # 1.54 英寸墨水屏例子
+│   ├── ssd1306_demo.py  # 0.96 英寸 OLED 例子
+│   └── st7735_demo.py  # 合宙 Air10x 系列屏幕扩展板驱动 例子(不完善)
+├── doc
+│   ├── MicroPython 中文字库的使用演示文档.md
+│   └── 如何生成点阵字体文件.md
+├── driver
+│   ├── e1in54.py  # 1.54 英寸墨水屏驱动
+│   ├── ssd1306.py  # 0.96 英寸 OLED 驱动
+│   └── st7735.py  # 合宙 Air10x 系列屏幕扩展板驱动
+├── requirements.txt  # python 库需求文件
+├── text.txt  # 默认字体集，用于生成点阵字体，可以自定义文字
+├── ufont.py  # ⭐库文件
+├── unifont-14-12888-16.v3.bmf  # ⭐生成的点阵字体
+└── unifont-14.0.04.ttf  # Unifont 字体 https://savannah.gnu.org/projects/unifont/
 ```
 
 上传`ufont.py`、`unifont-14-12888-16.v3.bmf`到`MicroPython`根目录
@@ -85,56 +89,17 @@ f.text(
 )
 ```
 
+**对于**`st7735(80*160)[合宙 Air10x 系列屏幕扩展板]`
+
+详见[MicroPython 中文字库的使用演示文档](/doc/MicroPython%20中文字库的使用演示文档.md)
+
 ### 字体生成
 
-1. 运行`pip install -r requirements.txt`
+详见[如何生成点阵字体文件](/doc/如何生成点阵字体文件.md)
 
-2. 配置`bitmapfonts.py`
+### 生成的字体文件格式
 
-   ```python
-   OFFSET = (0, 0)  # 字体偏移
-   CHAR_SET_FILE = "text.txt"  # 字体集，可以自定义文字
-   FONT_SIZE = 16  # 字号 (生成的最优字号，推荐16，其它可能出现问题)
-   FONT_FILE = "unifont-14.0.04.ttf"  # 字体文件  (根据此字体生成点阵字体)
-   ```
-
-3. 运行生成
-
-   终端运行：`python bitmapfonts.py `，生成的点阵文件名称：`字体文件名-字数量-默认字号.版本.bmf`
-
-4. 测试字体文件
-
-   ```python
-   ...
-   # 修改这行为你刚生成的
-   a = BMFont("unifont-14-12888-16.v3.bmf")  # line 202
-   ...
-   """
-   1000次读取时间: 0.04553900001337752
-   .  .  .  .  *  .  .  .  *  .  .  .  .  .  .  .  
-   .  .  .  .  *  .  .  .  *  .  .  .  .  .  .  .  
-   .  .  .  .  *  .  .  .  *  .  .  .  .  .  .  .  
-   .  .  .  *  .  .  .  *  *  *  *  *  *  *  *  .  
-   .  .  .  *  .  .  .  *  .  .  .  .  .  .  *  .  
-   .  .  *  *  .  .  *  .  .  .  .  .  .  *  .  .  
-   .  .  *  *  .  *  .  .  .  .  *  .  .  .  .  .  
-   .  *  .  *  .  .  .  .  .  .  *  .  .  .  .  .  
-   *  .  .  *  .  .  .  *  .  .  *  .  *  .  .  .  
-   .  .  .  *  .  .  .  *  .  .  *  .  .  *  .  .  
-   .  .  .  *  .  .  *  .  .  .  *  .  .  *  .  .  
-   .  .  .  *  .  .  *  .  .  .  *  .  .  .  *  .  
-   .  .  .  *  .  *  .  .  .  .  *  .  .  .  *  .  
-   .  .  .  *  .  .  .  .  .  .  *  .  .  .  .  .  
-   .  .  .  *  .  .  .  .  *  .  *  .  .  .  .  .  
-   .  .  .  *  .  .  .  .  .  *  .  .  .  .  .  .  
-   
-   进程已结束,退出代码0
-   """
-   ```
-
-5. 生成的字体文件格式
-
-   ![点阵字体文件格式](https://s1.ax1x.com/2022/07/31/vkQ9u6.jpg)
+![点阵字体文件格式](https://s1.ax1x.com/2022/07/31/vkQ9u6.jpg)
 
 ### 注意事项
 
