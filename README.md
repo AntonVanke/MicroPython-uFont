@@ -4,11 +4,13 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 
 ### 资源
 
-[MicroPython中文字库教程](https://www.bilibili.com/video/BV12B4y1B7Ff/)
+[MicroPython中文字库教程[BiliBili视频]](https://www.bilibili.com/video/BV12B4y1B7Ff/)
 
-[MicroPython 中文字库的使用演示文档](/doc/MicroPython%20中文字库的使用演示文档.md)
 
-[如何生成点阵字体文件](/doc/如何生成点阵字体文件.md)
+
+[MicroPython 中文字库的使用演示文档](./doc/MicroPython%20中文字库的使用演示文档.md)
+
+[如何生成点阵字体文件](https://github.com/AntonVanke/MicroPython_BitMap_Tools/blob/master/doc/如何生成点阵字体文件.md)
 
 ### 简单上手
 
@@ -42,7 +44,6 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 .
 ├── LICENSE
 ├── README.md
-├── bitmapfonts.py  # 点阵字体生成
 ├── demo
 │   ├── epaper1in54_demo.py  # 1.54 英寸墨水屏例子
 │   ├── ssd1306_demo.py  # 0.96 英寸 OLED 例子
@@ -55,10 +56,9 @@ MicroPython 的中文显示模块，使其可以在显示模块上显示汉字�
 │   ├── ssd1306.py  # 0.96 英寸 OLED 驱动
 │   └── st7735.py  # 合宙 Air10x 系列屏幕扩展板驱动
 ├── requirements.txt  # python 库需求文件
-├── text.txt  # 默认字体集，用于生成点阵字体，可以自定义文字
 ├── ufont.py  # ⭐库文件
-├── unifont-14-12888-16.v3.bmf  # ⭐生成的点阵字体
-└── unifont-14.0.04.ttf  # Unifont 字体 https://savannah.gnu.org/projects/unifont/
+└── unifont-14-12888-16.v3.bmf  # ⭐生成的点阵字体
+
 ```
 
 上传`ufont.py`、`unifont-14-12888-16.v3.bmf`到`MicroPython`根目录
@@ -95,7 +95,13 @@ f.text(
 
 ### 字体生成
 
-详见[如何生成点阵字体文件](/doc/如何生成点阵字体文件.md)
+#### 下载应用程序
+
+[ufont 点阵字体生成工具](https://github.com/AntonVanke/MicroPython_BitMap_Tools/releases/tag/v0.0.1)
+
+#### 详见
+
+[如何生成点阵字体文件](https://github.com/AntonVanke/MicroPython_BitMap_Tools/blob/master/doc/如何生成点阵字体文件.md)
 
 ### 生成的字体文件格式
 
