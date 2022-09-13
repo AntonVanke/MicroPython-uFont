@@ -5,11 +5,14 @@ import struct
 
 import framebuf
 
-DEBUG = True
+DEBUG = False
 
 
 def timeit(f, *args, **kwargs):
-    myname = str(f).split(' ')[1]
+    try:
+        myname = str(f).split(' ')[1]
+    except:
+        myname = "UNKONW"
 
     def new_func(*args, **kwargs):
         if DEBUG:
