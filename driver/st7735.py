@@ -109,15 +109,18 @@ class ST7735(framebuf.FrameBuffer):
         self.set_windows()
         self.clear()
 
-    def set_windows(self):
+    def set_windows(self, x_start=None, y_start=None, x_end=None, y_end=None):
         """
         设置窗口
         :return:
         """
-        x_start = self.offset[0] + 1
-        x_end = self.width + self.rotate + self.offset[0]
-        y_start = self.offset[1] + 1
-        y_end = self.height + self.rotate + self.offset[1]
+        x_start = (x_start + self.offset[0] + 1) if x_start is not None else (self.offset[0] + 1)
+        x_end = x_end + self.rotate + self.offset[0] if x_end is not None else self.width + self.rotate + \
+                                                                               self.offset[0]
+        y_start = y_start + self.offset[1] + 1 if y_start is not None else self.offset[1] + 1
+        y_end = y_end + self.rotate + self.offset[1] if y_end is not None else self.height + self.rotate + \
+                                                                               self.offset[1]
+
         self.write_cmd(CASET)
         self.write_data(bytearray([0x00, x_start, 0x00, x_end]))
 
