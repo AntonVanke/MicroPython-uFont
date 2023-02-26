@@ -1,3 +1,9 @@
+#   Github: https://github.com/AntonVanke/MicroPython-Chinese-Font
+#   Gitee: https://gitee.com/liio/MicroPython-Chinese-Font
+#   Tools: https://github.com/AntonVanke/MicroPython_BitMap_Tools
+#   Videos:
+#       https://www.bilibili.com/video/BV12B4y1B7Ff/
+#       https://www.bilibili.com/video/BV1YD4y16739/
 __version__ = 3
 
 import time
@@ -8,32 +14,148 @@ import framebuf
 DEBUG = False
 
 
-def timeit(f, *args, **kwargs):
-    try:
-        myname = str(f).split(' ')[1]
-    except:
-        myname = "UNKONW"
+def timeit(func, *args, **kwargs):
+    """
+    测试程序时间
+    Args:
+        func:
+        *args:
+        **kwargs:
 
-    def new_func(*args, **kwargs):
+    Returns:
+
+    """
+
+    def get_running_time(*args, **kwargs):
         if DEBUG:
             try:
                 t = time.ticks_us()
-                result = f(*args, **kwargs)
+                result = func(*args, **kwargs)
                 delta = time.ticks_diff(time.ticks_us(), t)
-                print('Function {} Time = {:6.3f}ms'.format(myname, delta / 1000))
+                print('Function {} Time = {:6.3f}ms'.format(func.__name__, delta / 1000))
             except AttributeError:
                 t = time.perf_counter_ns()
-                result = f(*args, **kwargs)
+                result = func(*args, **kwargs)
                 delta = time.perf_counter_ns() - t
-                print('Function {} Time = {:6.3f}ms'.format(myname, delta / 1000000))
+                print('Function {} Time = {:6.3f}ms'.format(func.__name__, delta / 1000000))
             return result
         else:
-            return f(*args, **kwargs)
+            return func(*args, **kwargs)
 
-    return new_func
+    return get_running_time
 
 
 class BMFont:
+    @timeit
+    def text(self, display, string: str, x: int, y: int, color: int = 1, bg_color: int = -1, font_size: int = None,
+             half_char: bool = True, auto_wrap: bool = False, show: bool = True, clear=False, alpha_color=-1,
+             reverse=False, **kwargs):
+        """
+        Args:
+            display: 显示实例
+            string: 字符串
+            x: 字体左上角 x 轴
+            y: 字体左上角 y 轴
+            color: 字体颜色
+            bg_color: 背景颜色，当和 alpha_color 相同为 -1 时背景透明
+            font_size: 字号
+            half_char: 是否半字节显示 ASCII 字符
+            auto_wrap: 自动换行
+            show: 执行自动更新到屏幕
+            clear: 更新前清屏
+            alpha_color: 当和 alpha_color 相同为 -1 时背景透明
+            reverse: 当使用 epaper 时，指定为 True (通过反转字节来反转背景)
+            **kwargs:
+
+        Returns:
+
+        """
+        # 如果没有指定字号则使用默认字号
+        font_size = font_size or self.font_size
+        # 记录初始的 x 位置
+        initial_x = x
+
+        # 判断是 RGB565 还是 MONO_HLSB
+        if (display.width * display.height) > len(display.buffer):
+            color_type = 0
+        else:
+            color_type = 1
+            palette = [[bg_color & 0xFF, (bg_color & 0xFF00) >> 8], [color & 0xFF, (color & 0xFF00) >> 8]]
+
+        try:
+            display.clear() if clear else 0
+        except AttributeError:
+            print("请自行调用 display.fill() 清屏")
+
+        # TODO:设置字体颜色(前景色乱变)
+        # palette_buffer = bytearray(8)
+        # palette = framebuf.FrameBuffer(palette_buffer, 2, 1, framebuf.RGB565)
+        # palette.pixel(0, 0, bg_color)
+        # palette.pixel(1, 0, color)
+
+        for char in range(len(string)):
+            # 对自动换行的处理
+            if auto_wrap:
+                if auto_wrap and ((x + font_size // 2 >= display.width and ord(string[char]) < 128 and half_char) or
+                                  (x + font_size >= display.width and (not half_char or ord(string[char]) > 128))):
+                    y += font_size
+                    x = initial_x
+
+            # 对于回车的处理
+            if string[char] == '\n':
+                y += font_size
+                x = initial_x
+                continue
+
+            # 对于制表符的处理
+            elif string[char] == '\t':
+                x = ((x // font_size) + 1) * font_size + initial_x % font_size
+                continue
+
+            # 其它的控制字符不显示
+            elif ord(string[char]) < 16:
+                continue
+
+            # 超过范围的字符不会显示*
+            if x > display.width or y > display.height:
+                continue
+
+            # 获取字体的点阵数据
+            byte_data = list(self.get_bitmap(string[char]))
+
+            if font_size != self.font_size or color_type == 1:
+                bit_data = self._to_bit_list(byte_data, font_size)
+                if color_type == 1:
+                    byte_data = self._flatten_bit_data(bit_data, palette)
+                elif color_type == 0:
+                    if reverse:
+                        for _pixel in range(len(byte_data)):
+                            byte_data[_pixel] = ~byte_data[_pixel] & 0xff
+                    byte_data = self._bit_list_to_byte_data(bit_data)
+
+            if color_type == 1:
+                display.blit(framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.RGB565), x, y,
+                             alpha_color)
+            elif color_type == 0:
+                display.blit(framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y,
+                             alpha_color)
+
+            # 英文字符半格显示
+            if ord(string[char]) < 128 and half_char:
+                x += font_size // 2
+            else:
+                x += font_size
+
+        display.show() if show else 0
+
+    @timeit
+    def _flatten_bit_data(self, _bit_data, palette=None):
+        _temp = []
+        for row in _bit_data:
+            for e in row:
+                _temp.extend(palette[e])
+        return _temp
+
     @staticmethod
     def _list_to_byte(arr):
         b = 0
@@ -58,26 +180,6 @@ class BMFont:
         return byte_data
 
     @timeit
-    def __init__(self, font_file):
-        self.font_file = font_file
-
-        self.font = open(font_file, "rb", buffering=0xff)
-
-        self.bmf_info = self.font.read(16)
-
-        if self.bmf_info[0:2] != b"BM":
-            raise TypeError("字体文件格式不正确: " + font_file)
-
-        self.version = self.bmf_info[2]
-        if self.version != 3:
-            raise TypeError("字体文件版本不正确: " + str(self.version))
-
-        self.map_mode = self.bmf_info[3]  # 映射方式
-        self.start_bitmap = struct.unpack(">I", b'\x00' + self.bmf_info[4:7])[0]  # 位图开始字节
-        self.font_size = self.bmf_info[7]  # 字体大小
-        self.bitmap_size = self.bmf_info[8]  # 点阵所占字节
-
-    @timeit
     def _to_bit_list(self, byte_data, font_size, *, _height=None, _width=None):
         """将字节数据转换为点阵数据
 
@@ -100,26 +202,9 @@ class BMFont:
         return new_bitarray
 
     @timeit
-    def _color_render(self, bit_list, color):
-        """将二值点阵图像转换为 RGB565 彩色字节图像
-
-        Args:
-            bit_list:
-            color:
-
-        Returns:
-
-        """
-        color_array = b""
-        for _col in range(len(bit_list)):
-            for _row in range(len(bit_list)):
-                color_array += struct.pack("<H", color) if bit_list[_col][_row] else b'\x00\x00'
-        return color_array
-
-    @timeit
     def _get_index(self, word):
-        """获取索引
-
+        """
+        获取索引
         Args:
             word: 字符
 
@@ -161,144 +246,35 @@ class BMFont:
         return self.font.read(self.bitmap_size)
 
     @timeit
-    def text(self, display, string, x, y, color=1, *, font_size=None, reverse=False, clear=False, show=False,
-             half_char=True, auto_wrap=False, **kwargs):
-        """通过显示屏显示文字
-
-        使用此函数显示文字，必须先确认显示对象是否继承与 framebuf.FrameBuffer。
-        如果显示对象没有 clear 方法，需要自行调用 fill 清屏
-
-        Args:
-            display: 显示实例
-            string: 字符串
-            x: 字体左上角 x 轴
-            y: 字体左上角 y 轴
-            color: 颜色
-            font_size: 字号
-            reverse: 是否反转背景
-            clear: 是否清除之前显示的内容
-            show: 是否立刻显示
-            half_char: 是否半字节显示 ASCII 字符
-            auto_wrap: 自动换行
-            **kwargs:
-
-        Returns:
-            None
+    def __init__(self, font_file):
         """
-        font_size = font_size or self.font_size
-        initial_x = x
-
-        # 清屏
-        try:
-            display.clear() if clear else 0
-        except AttributeError:
-            print("请自行调用 display.fill(*) 清屏")
-
-        for char in range(len(string)):
-            # 是否自动换行
-            if auto_wrap:
-                if auto_wrap and ((x + font_size // 2 >= display.width and ord(string[char]) < 128 and half_char) or
-                                  (x + font_size >= display.width and (not half_char or ord(string[char]) > 128))):
-                    y += font_size
-                    x = initial_x
-
-            # 回车
-            if string[char] == '\n':
-                y += font_size
-                x = initial_x
-                continue
-            # Tab
-            elif string[char] == '\t':
-                x = ((x // font_size) + 1) * font_size + initial_x % font_size
-                continue
-            # 其它的控制字符不显示
-            elif ord(string[char]) < 16:
-                continue
-
-            # 超过范围的字符不会显示*
-            if x > display.width or y > display.height:
-                continue
-
-            byte_data = list(self.get_bitmap(string[char]))
-
-            # 反转
-            if reverse:
-                for _pixel in range(len(byte_data)):
-                    byte_data[_pixel] = ~byte_data[_pixel] & 0xff
-
-            # 缩放和色彩*
-            if color > 1 or font_size != self.font_size:
-                bit_data = self._to_bit_list(byte_data, font_size)
-                if color > 1:
-                    display.blit(
-                        framebuf.FrameBuffer(bytearray(self._color_render(bit_data, color)), font_size, font_size,
-                                             framebuf.RGB565), x, y)
-                else:
-                    display.blit(
-                        framebuf.FrameBuffer(bytearray(self._bit_list_to_byte_data(bit_data)), font_size, font_size,
-                                             framebuf.MONO_HLSB), x, y)
-            else:
-                display.blit(framebuf.FrameBuffer(bytearray(byte_data), font_size, font_size, framebuf.MONO_HLSB), x, y)
-
-            # 英文字符半格显示
-            if ord(string[char]) < 128 and half_char:
-                x += font_size // 2
-            else:
-                x += font_size
-
-        display.show() if show else 0
-
-    def char(self, char, color=1, font_size=None, reverse=False):
-        """ 获取字体字节数据
-
-        在没有继承 framebuf.FrameBuffer 的显示驱动,或者内存不足以将一整个屏幕载入缓存帧时
-        可以直接获取单字的字节数据,局部更新
         Args:
-            char: 单个字符
-            color: 颜色
-            font_size: 字体大小
-            reverse: 反转
-
-        Returns:
-            bytearray
+            font_file: 字体文件路径
         """
-        font_size = font_size or self.font_size
-        byte_data = list(self.get_bitmap(char))
+        self.font_file = font_file
+        # 载入字体文件
+        self.font = open(font_file, "rb")
+        # 获取字体文件信息
+        self.bmf_info = self.font.read(16)
 
-        # 反转
-        if reverse:
-            for _pixel in range(len(byte_data)):
-                byte_data[_pixel] = ~byte_data[_pixel] & 0xff
-        if color > 1 or font_size != self.font_size:
-            bit_data = self._to_bit_list(byte_data, font_size)
-            if color > 1:
-                return self._color_render(bit_data, color)
-            else:
-                return self._bit_list_to_byte_data(bit_data)
-        else:
-            return bytearray(byte_data)
+        # 判断字体是否正确
+        if self.bmf_info[0:2] != b"BM":
+            raise TypeError("字体文件格式不正确: " + font_file)
+
+        self.version = self.bmf_info[2]
+        if self.version != 3:
+            raise TypeError("字体文件版本不正确: " + str(self.version))
+
+        # 映射方式
+        self.map_mode = self.bmf_info[3]
+        # 位图开始字节
+        self.start_bitmap = struct.unpack(">I", b'\x00' + self.bmf_info[4:7])[0]
+        # 字体大小
+        self.font_size = self.bmf_info[7]
+        # 点阵所占字节
+        self.bitmap_size = self.bmf_info[8]
 
 
 if __name__ == '__main__':
-    def show_bitmap(arr):
-        """
-        显示点阵字 MONO_HLSB
-        :return:
-        """
-        for row in arr:
-            for i in row:
-                if i:
-                    print('* ', end=' ')
-                else:
-                    print('. ', end=' ')
-            print()
-
-
     font = BMFont("unifont-14-12888-16.v3.bmf")
-    print("16 ----")
-    bd = font.char("我", reverse=True, color=0xffff, font_size=16)
-    print("24 ----")
-    bd = font.char("我", reverse=True, color=0xffff, font_size=24)
-    print("16 ----")
-    # font._with_color(zoom(byte_to_bit(font.get_bitmap("我"), 16), 24), 0xff00)
-    font._color_render(font._to_bit_list(font.get_bitmap("我"), 24), 0xff00)
+    font._get_index("我")

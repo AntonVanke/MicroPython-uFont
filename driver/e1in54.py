@@ -108,12 +108,12 @@ class EPD(framebuf.FrameBuffer):
         x = x & 0xF8
         w = w & 0xF8
 
-        if (x + w >= self.width):
+        if x + w >= self.width:
             x_end = self.width - 1
         else:
             x_end = x + w - 1
 
-        if (y + h >= self.height):
+        if y + h >= self.height:
             y_end = self.height - 1
         else:
             y_end = y + h - 1

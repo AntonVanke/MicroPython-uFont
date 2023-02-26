@@ -9,7 +9,7 @@ poem_info = "\t登高\n唐·杜甫"
 poem = "风急天高猿啸哀渚清沙白鸟飞回无边落木萧萧下不尽长江滚滚来万里悲秋常作客百年多病独登台艰难苦恨繁霜鬓潦倒新停浊酒杯"
 
 spi = SPI(1, 30000000, sck=Pin(2), mosi=Pin(3))
-display = ST7735(spi=spi, cs=18, dc=12, rst=1, bl=19, width=80, height=160, rotate=0)
+display = ST7735(spi=spi, cs=7, dc=6, rst=10, bl=11, width=80, height=160, rotate=0)
 f = ufont.BMFont("unifont-14-12888-16.v3.bmf")
 
 

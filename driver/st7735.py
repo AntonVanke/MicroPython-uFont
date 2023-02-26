@@ -55,7 +55,7 @@ VMCTR1 = const(0xC5)
 GMCTRP1 = const(0xE0)
 GMCTRN1 = const(0xE1)
 
-ROTATIONS = [0x00, 0x60]  # 只给了两个旋转方向
+ROTATIONS = [0x00, 0x60, 0xC0, 0xA0]  # 旋转方向
 
 
 def color(r, g, b):
@@ -212,7 +212,7 @@ class ST7735(framebuf.FrameBuffer):
     def back_light(self, value):
         """
         背光调节
-        :param value: 背光等级 0 ~ 256
+        :param value: 背光等级 0 ~ 255
         :return:
         """
         self.bl.freq(1000)
