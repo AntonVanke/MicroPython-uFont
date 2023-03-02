@@ -17,6 +17,7 @@
 屏幕详细信息: https://wiki.luatos.com/peripherals/lcd_air10x/index.html
 ST7735S文档: https://www.waveshare.net/w/upload/e/e2/ST7735S_V1.1_20111121.pdf
 FrameBuf文档: https://docs.micropython.org/en/latest/library/framebuf.html
+字体文档: https://github.com/AntonVanke/MicroPython-Chinese-Font
 """
 import gc
 import time
