@@ -1,27 +1,40 @@
+__version__ = "2.0.1"
 """
-建议使用 st77xx 驱动
+ST77XX 通用驱动 v2.0.1
+支持 ST7789 和 ST7735 的驱动，采用 FrameBuffer(RGB565) 缓冲整个屏幕数据，内存较小勿用
 
----
+内存计算方式:
+    width * height * 2(Byte)
 
-合宙 Air10x 系列屏幕扩展板驱动
-160(H)RGB x 80(V)
-
-使用方法(以合宙ESP32C3为例):
+使用方法(以 [合宙ESP32C3] + [合宙 Air10x 系列屏幕扩展板] 直插为例):
     from machine import SPI, Pin
-    from st7735 import ST7735
+    from st77xx import ST77XX
 
-    spi = SPI(1, 30000000, sck=Pin(2), mosi=Pin(3))
+    spi = SPI(1, 30000000, sck=Pin(2), mosi=Pin(3), polarity=1)
     ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=1)  # 直插横屏显示
     ST7735(spi, rst=10, dc=6, cs=7, bl=11, width=160, height=80, rotate=0)  # 直插竖屏显示
 
-本款LCD使用的内置控制器为ST7735S，是一款162 x RGB x 132像素的LCD控制器,而本LCD本身的像素为160(H)RGB x 80(V)。由于LCD的显示
-起始位置与控制器的原点不一致，因此在使用控制器初始化显示全屏显示区域时需要对做偏移处理：水平方向从第二个像素点开始显示，垂直方向从第27个像素点
-开始。这样就可以保证显示的LCD中RAM对应的位置与实际一致。(https://www.waveshare.net/wiki/Pico-LCD-0.96)
+偏移问题:
+    默认提供了三种屏幕的偏移数据(160*80, 160*128, 240*240)，偏移不正确或者没有预设，请自行指定偏移，例如:
+        ST7789(spi, rst=6, dc=5, bl=4, width=240, height=135, rotate=0, offset=(0, 0, 240, 135))
 
-屏幕详细信息: https://wiki.luatos.com/peripherals/lcd_air10x/index.html
+颜色问题:
+    不同厂商生产的屏幕可能会有颜色错误，可以更改 `rgb` 和 `inverse` 参数来校准颜色，例如:
+        d = ST7789(spi, rst=6, dc=5, bl=4, width=240, height=135, rotate=0, rgb=True, inverse=True)
+        d = ST7789(spi, rst=6, dc=5, bl=4, width=240, height=135, rotate=0, rgb=True, inverse=False)
+        ......
+
+无法显示问题:
+    查看并尝试更改 SPI的 polarity/firstbit/phase 参数，参考文档：
+        https://docs.micropython.org/en/latest/library/machine.SPI.html#machine.SoftSPI
+        
 ST7735S文档: https://www.waveshare.net/w/upload/e/e2/ST7735S_V1.1_20111121.pdf
-FrameBuf文档: https://docs.micropython.org/en/latest/library/framebuf.html
-字体文档: https://github.com/AntonVanke/MicroPython-Chinese-Font
+ST7789文档: https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
+
+FrameBuf 文档: https://docs.micropython.org/en/latest/library/framebuf.html
+字库文档: https://github.com/AntonVanke/MicroPython-uFont
+字体生成工具：https://github.com/AntonVanke/MicroPython-uFont-Tools
+自用 Micropython 驱动库：https://github.com/AntonVanke/MicroPython-Drivers
 """
 import gc
 import time
@@ -60,7 +73,13 @@ VMCTR1 = const(0xC5)
 GMCTRP1 = const(0xE0)
 GMCTRN1 = const(0xE1)
 
-ROTATIONS = [0x00, 0x60, 0xC0, 0xA0]  # 旋转方向
+# 旋转方向
+ROTATIONS = [0x00, 0x60, 0xC0, 0xA0]
+
+# 预设偏移
+TYPE_A_OFFSET = [(24, 0, 103, 160), (0, 24, 160, 104), (24, 0, 103, 160), (0, 24, 160, 104)]  # 80x160
+TYPE_B_OFFSET = [(0, 0, 128, 160), (0, 0, 160, 128), (0, 0, 128, 160), (0, 0, 160, 128)]  # 128x160
+TYPE_C_OFFSET = [(0, 0, 239, 240), (0, 0, 240, 240), (80, 0, 320, 240), (0, 80, 240, 320)]  # 240x240
 
 
 def color(r, g, b):
@@ -75,8 +94,9 @@ WHITE = color(255, 255, 255)
 BLACK = color(0, 0, 0)
 
 
-class ST7735(framebuf.FrameBuffer):
-    def __init__(self, spi, rst, dc, cs, bl=None, width=80, height=160, offset=None, rotate=1, rgb=True):
+class ST77XX(framebuf.FrameBuffer):
+    def __init__(self, spi, rst, dc, cs=None, bl=None, width=80, height=160, offset=(0, 0, 0, 0), rotate=1,
+                 rgb=True, inverse=False, **kwargs):
         """
         :param spi:
         :param rst:
@@ -85,27 +105,30 @@ class ST7735(framebuf.FrameBuffer):
         :param bl: 背光
         :param width: 宽度
         :param height: 高度
-        :param offset: 偏移 (x, y): (23, -1)|(-1, 23)
-        :param rotate: 旋转 0 横屏 1 竖屏
+        :param offset: 偏移
+        :param rotate: 旋转
         :param rgb: RGB 色彩模式
         """
         # 根据方向自动设置偏移
         self.rotate = rotate
         self.offset = offset
+        self.inverse = inverse
         self.rgb = rgb
-        if offset is None and rotate == 1:
-            self.offset = (-1, 23)
-        elif offset is None and rotate == 0:
-            self.offset = (23, -1)
         self.width = width
         self.height = height
 
         self.spi = spi
         self.rst = machine.Pin(rst, machine.Pin.OUT, machine.Pin.PULL_DOWN)
         self.dc = machine.Pin(dc, machine.Pin.OUT, machine.Pin.PULL_DOWN)
-        self.cs = machine.Pin(cs, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+
+        # 有的没有cs引脚
+        if cs is not None:
+            self.cs = machine.Pin(cs, machine.Pin.OUT, machine.Pin.PULL_DOWN)
+        else:
+            self.cs = int
         if bl is not None:
-            self.bl = machine.PWM(machine.Pin(bl))
+            self.bl = machine.PWM(machine.Pin(bl), duty=1023)
+        self.auto_offset() if self.offset == (0, 0, 0, 0) else 0
 
         gc.collect()
         self.buffer = bytearray(self.height * self.width * 2)
@@ -114,23 +137,33 @@ class ST7735(framebuf.FrameBuffer):
         self.set_windows()
         self.clear()
 
+    def auto_offset(self, _rotate: int = None):
+        _rotate = self.rotate if _rotate is None else None
+        if self.width in [80, 160] and self.height in [80, 160]:
+            self.offset = TYPE_A_OFFSET[_rotate]
+        elif self.width in [128, 160] and self.height in [128, 160]:
+            self.offset = TYPE_B_OFFSET[_rotate]
+        elif self.width == 240 and self.height == 240:
+            self.offset = TYPE_C_OFFSET[_rotate]
+        else:
+            self.offset = (0, 0, self.width if _rotate % 2 and self.width > self.height else self.height,
+                           self.height if _rotate % 2 and self.width > self.height else self.width)
+
     def set_windows(self, x_start=None, y_start=None, x_end=None, y_end=None):
         """
         设置窗口
         :return:
         """
-        x_start = (x_start + self.offset[0] + 1) if x_start is not None else (self.offset[0] + 1)
-        x_end = x_end + self.rotate + self.offset[0] if x_end is not None else self.width + self.rotate + \
-                                                                               self.offset[0]
-        y_start = y_start + self.offset[1] + 1 if y_start is not None else self.offset[1] + 1
-        y_end = y_end + self.rotate + self.offset[1] if y_end is not None else self.height + self.rotate + \
-                                                                               self.offset[1]
+        x_start = x_start if x_start else self.offset[0]
+        y_start = y_start if y_start else self.offset[1]
+        x_end = x_end if x_end else self.offset[2]
+        y_end = y_end if y_end else self.offset[3]
 
         self.write_cmd(CASET)
-        self.write_data(bytearray([0x00, x_start, 0x00, x_end]))
+        self.write_data(bytearray([x_start >> 8, x_start & 0xff, x_end >> 8, x_end & 0xff]))
 
         self.write_cmd(RASET)
-        self.write_data(bytearray([0x00, y_start, 0x00, y_end]))
+        self.write_data(bytearray([y_start >> 8, y_start & 0xff, y_end >> 8, y_end & 0xff]))
 
         self.write_cmd(RAMWR)
 
@@ -166,7 +199,7 @@ class ST7735(framebuf.FrameBuffer):
         self.write_cmd(VMCTR1)
         self.write_data(bytearray([0x0E]))
 
-        self.write_cmd(INVOFF)
+        self.write_cmd(INVOFF + int(self.inverse))
 
         self.write_cmd(MADCTL)
         self.write_data(bytearray([ROTATIONS[self.rotate] | 0x00 if self.rgb else 0x08]))
@@ -259,8 +292,10 @@ class ST7735(framebuf.FrameBuffer):
         for i in range(len(arr) - 1):
             self.line(*arr[i], *arr[i + 1], c)
 
-    def image(self, file_name):
-        with open(file_name, "rb") as bmp:
-            for b in range(0, 80 * 160 * 2, 1024):
-                self.buffer[b:b + 1024] = bmp.read(1024)
-            self.show()
+
+class ST7789(ST77XX):
+    pass
+
+
+class ST7735(ST77XX):
+    pass
